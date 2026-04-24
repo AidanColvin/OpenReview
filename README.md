@@ -1,11 +1,10 @@
 # OpenReview
-A heuristic-driven, open-source systematic review screener designed to optimize research synthesis efficiency by addressing usability gaps in existing tools like Rayyan.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![UX-Evaluation](https://img.shields.io/badge/UX-Heuristic%20Validated-blue)]()
 
-> **An open-source, AI-assisted systematic review screener optimized for high-speed evidence synthesis and usability-first research workflows.**
+> **A heuristic-driven, open-source systematic review screener designed to optimize research synthesis efficiency by addressing usability gaps in existing tools like Rayyan.**
 
 ---
 
