@@ -1,16 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap');
+
+/* Narrow wordmark */
+.or-wordmark {
+  font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Splash */
+#splash-screen {
+  transition: opacity 0.6s ease;
+}
+#splash-screen.or-fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Home screen dot grid background */
+.or-home-bg {
+  background-color: #f7f8fc;
+  background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px);
+  background-size: 28px 28px;
+  min-height: calc(100vh - 53px);
+}
+
+/* Blurred modal overlay */
+.or-overlay {
+  background: rgba(15, 15, 30, 0.18);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Consistent modal inputs */
+.or-input {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
+  width: 100%;
+  font-family: inherit;
+}
+.or-input:focus {
+  border-color: #4b5563;
+  box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.12);
+}
+
 /* Snackbar countdown bar */
 #snackbar-bar {
   transition: width 0.1s linear;
 }
 
 /* Progress bar segments */
-#bar-included,
-#bar-excluded,
-#bar-maybe {
+#bar-included, #bar-excluded, #bar-maybe {
   transition: width 0.3s ease;
 }
 
-/* Keyboard focus rings */
+/* Focus rings */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -19,7 +68,7 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* Smooth article list scrolling */
+/* Article list scroll */
 #article-list {
   scroll-behavior: smooth;
 }

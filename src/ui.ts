@@ -108,8 +108,26 @@ export function clearSnackbar(state: AppState): void {
 
 export function openShortcutOverlay():  void { document.getElementById('shortcut-overlay')!.classList.remove('hidden'); }
 export function closeShortcutOverlay(): void { document.getElementById('shortcut-overlay')!.classList.add('hidden'); }
-export function showScreeningScreen():  void { document.getElementById('import-screen')!.classList.add('hidden');   document.getElementById('screening-screen')!.classList.remove('hidden'); }
-export function showImportScreen():     void { document.getElementById('screening-screen')!.classList.add('hidden'); document.getElementById('import-screen')!.classList.remove('hidden'); }
+
+/**
+ * Given nothing, hides all other screens and shows the screening screen.
+ */
+export function showScreeningScreen(): void {
+  document.getElementById('home-screen')!.classList.add('hidden');
+  document.getElementById('create-review-overlay')!.classList.add('hidden');
+  document.getElementById('import-screen')!.classList.add('hidden');
+  document.getElementById('screening-screen')!.classList.remove('hidden');
+}
+
+/**
+ * Given nothing, hides all other screens and shows the import (upload) screen.
+ */
+export function showImportScreen(): void {
+  document.getElementById('home-screen')!.classList.add('hidden');
+  document.getElementById('create-review-overlay')!.classList.add('hidden');
+  document.getElementById('screening-screen')!.classList.add('hidden');
+  document.getElementById('import-screen')!.classList.remove('hidden');
+}
 
 export function showImportError(msg: string): void {
   const el = document.getElementById('import-error')!;

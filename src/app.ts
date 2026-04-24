@@ -1,15 +1,13 @@
 /**
  * app.ts
- * Owns the single global AppState object.
- * Wires all modules together via event listeners. No inline HTML event handlers.
- * All user actions: DOM event -> app.ts -> logic module -> saveArticles -> render.
+ * Owns the single global AppState. Wires all modules via event listeners.
+ * Flow: splash (3s) -> home + create-review modal -> import screen -> screening.
  */
 
 import { Article, AppState, Decision, makeFilter } from './models';
 import {
   loadArticles, saveArticles, clearArticles,
   loadFilters, saveFilters,
-  shortcutsShown, markShortcutsShown,
 } from './storage';
 import { parseRIS, parseBibTeX, deduplicateArticles } from './parser';
 import { makeDecision, undoLastDecision, undoSession, getNextArticle, getPreviousArticle } from './screening';
@@ -19,7 +17,7 @@ import {
   renderArticleList, renderArticleDetail, renderStats,
   showSnackbar, clearSnackbar,
   openShortcutOverlay, closeShortcutOverlay,
-  showImportError, showScreeningScreen, showImportScreen,
+  showImportError, showScreeningScreen,
 } from './ui';
 
 const state: AppState = {
@@ -30,27 +28,83 @@ const state: AppState = {
   snackbarTimer: null,
 };
 
+const MODAL_FIELDS = [
+  'input-review-title',
+  'input-review-topic',
+  'input-review-type',
+  'input-review-domain',
+  'input-review-description',
+];
+
 /**
  * Given nothing, initializes the application on DOMContentLoaded.
  */
 export function boot(): void {
   state.articles = loadArticles();
   state.filters  = loadFilters();
-
-  if (state.articles.length) {
-    showScreeningScreen();
-    renderAll();
-    const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0];
-    if (first) selectArticle(first.id);
-  }
-
-  if (!shortcutsShown()) {
-    openShortcutOverlay();
-    markShortcutsShown();
-  }
-
   bindEvents();
   bindKeyboard();
+  startSplash();
+}
+
+/**
+ * Given nothing, shows the splash for 3 seconds then reveals the correct screen.
+ */
+function startSplash(): void {
+  const splash = document.getElementById('splash-screen')!;
+  const main   = document.getElementById('main-app')!;
+
+  setTimeout(() => {
+    splash.classList.add('or-fading');
+    setTimeout(() => {
+      splash.classList.add('hidden');
+      main.classList.remove('hidden');
+
+      if (state.articles.length) {
+        showScreeningScreen();
+        renderAll();
+        const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0];
+        if (first) selectArticle(first.id);
+      } else {
+        showCreateReviewModal();
+      }
+    }, 400);
+  }, 1000);
+}
+
+/**
+ * Given nothing, shows the home background and the create review modal.
+ */
+function showCreateReviewModal(): void {
+  document.getElementById('home-screen')!.classList.remove('hidden');
+  document.getElementById('create-review-overlay')!.classList.remove('hidden');
+  document.getElementById('import-screen')!.classList.add('hidden');
+  document.getElementById('screening-screen')!.classList.add('hidden');
+  setTimeout(() => {
+    (document.getElementById('input-review-title') as HTMLInputElement)?.focus();
+  }, 80);
+}
+
+/**
+ * Given nothing, validates the modal form and advances to the import screen.
+ */
+function submitCreateReview(): void {
+  const titleEl = document.getElementById('input-review-title') as HTMLInputElement;
+  const title   = titleEl.value.trim();
+  const errorEl = document.getElementById('modal-error')!;
+
+  if (!title) {
+    errorEl.classList.remove('hidden');
+    titleEl.focus();
+    return;
+  }
+
+  errorEl.classList.add('hidden');
+  localStorage.setItem('openreview_review_title', title);
+
+  document.getElementById('create-review-overlay')!.classList.add('hidden');
+  document.getElementById('home-screen')!.classList.add('hidden');
+  document.getElementById('import-screen')!.classList.remove('hidden');
 }
 
 /**
@@ -154,9 +208,30 @@ function renderAll(): void {
 }
 
 /**
- * Given nothing, attaches all DOM event listeners using IDs. No inline handlers.
+ * Given nothing, attaches all DOM event listeners.
  */
 function bindEvents(): void {
+  // Modal field Enter-key navigation
+  MODAL_FIELDS.forEach((id, index) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', (ev: Event) => {
+      const ke = ev as KeyboardEvent;
+      if (ke.key !== 'Enter') return;
+      if (el.tagName === 'TEXTAREA') {
+        if (!ke.shiftKey) { ke.preventDefault(); submitCreateReview(); }
+        return;
+      }
+      ke.preventDefault();
+      const nextId = MODAL_FIELDS[index + 1];
+      if (nextId) (document.getElementById(nextId) as HTMLElement)?.focus();
+      else submitCreateReview();
+    });
+  });
+
+  // Go button
+  document.getElementById('btn-create-review')?.addEventListener('click', () => submitCreateReview());
+
   // File upload
   document.getElementById('file-input')?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -184,7 +259,7 @@ function bindEvents(): void {
   document.getElementById('article-tags')?.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-tag]');
     if (!btn || !state.currentId) return;
-    const tag  = btn.dataset['removeTag']!;
+    const tag = btn.dataset['removeTag']!;
     state.articles = state.articles.map(a => a.id === state.currentId ? removeTag(a, tag) : a);
     saveArticles(state.articles);
     const updated = state.articles.find(a => a.id === state.currentId);
@@ -204,7 +279,7 @@ function bindEvents(): void {
     if (updated) renderArticleDetail(updated);
   });
 
-  // Notes autosave on blur
+  // Notes autosave
   document.getElementById('notes-input')?.addEventListener('blur', (e) => {
     if (!state.currentId) return;
     const notes = (e.target as HTMLTextAreaElement).value;
@@ -212,7 +287,7 @@ function bindEvents(): void {
     saveArticles(state.articles);
   });
 
-  // Decision buttons
+  // Decisions
   document.getElementById('btn-include')?.addEventListener('click', () => decide('include'));
   document.getElementById('btn-maybe')?.addEventListener('click',   () => decide('maybe'));
   document.getElementById('btn-exclude')?.addEventListener('click', () => decide('exclude'));
@@ -222,14 +297,14 @@ function bindEvents(): void {
   document.getElementById('btn-previous')?.addEventListener('click', () => navigate('previous'));
 
   // Undo
-  document.getElementById('btn-undo')?.addEventListener('click', () => undoLast());
+  document.getElementById('btn-undo')?.addEventListener('click',         () => undoLast());
   document.getElementById('btn-undo-session')?.addEventListener('click', () => undoSessionAll());
 
-  // Shortcut overlay
+  // Shortcut overlay -- only opens when user explicitly clicks button
   document.getElementById('btn-shortcuts')?.addEventListener('click',     () => openShortcutOverlay());
   document.getElementById('btn-close-overlay')?.addEventListener('click', () => closeShortcutOverlay());
   document.getElementById('btn-got-it')?.addEventListener('click',        () => closeShortcutOverlay());
-  document.getElementById('shortcut-overlay')?.addEventListener('click', (e) => {
+  document.getElementById('shortcut-overlay')?.addEventListener('click',  (e) => {
     if (e.target === document.getElementById('shortcut-overlay')) closeShortcutOverlay();
   });
 
@@ -254,27 +329,29 @@ function bindEvents(): void {
   document.getElementById('btn-clear')?.addEventListener('click', () => {
     if (!confirm('Delete all articles? This cannot be undone.')) return;
     clearArticles();
-    state.articles = [];
+    state.articles  = [];
     state.currentId = null;
-    showImportScreen();
+    showCreateReviewModal();
   });
 }
 
 /**
- * Given nothing, attaches all keyboard shortcut listeners to the document.
+ * Given nothing, attaches keyboard shortcuts. Ignores input when modal is open.
  */
 function bindKeyboard(): void {
   document.addEventListener('keydown', (e: KeyboardEvent): void => {
-    const active = document.activeElement as HTMLElement;
+    const active    = document.activeElement as HTMLElement;
+    const modalOpen = !document.getElementById('create-review-overlay')!.classList.contains('hidden');
+    if (modalOpen) return;
     if (['input', 'textarea', 'select'].includes(active.tagName.toLowerCase())) return;
 
     switch (e.key) {
-      case 'i': case 'I':       decide('include');   break;
-      case 'e': case 'E':       decide('exclude');   break;
-      case 'm': case 'M':       decide('maybe');     break;
-      case 'j': case 'ArrowRight': navigate('next'); break;
+      case 'i': case 'I':          decide('include');    break;
+      case 'e': case 'E':          decide('exclude');    break;
+      case 'm': case 'M':          decide('maybe');      break;
+      case 'j': case 'ArrowRight': navigate('next');     break;
       case 'k': case 'ArrowLeft':  navigate('previous'); break;
-      case 'z': if (e.ctrlKey || e.metaKey) undoLast(); break;
+      case 'z': if (e.ctrlKey || e.metaKey) undoLast();  break;
       case '?':      openShortcutOverlay();  break;
       case 'Escape': closeShortcutOverlay(); break;
     }
