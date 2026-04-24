@@ -1,0 +1,25 @@
+/* Snackbar countdown bar */
+#snackbar-bar {
+  transition: width 0.1s linear;
+}
+
+/* Progress bar segments */
+#bar-included,
+#bar-excluded,
+#bar-maybe {
+  transition: width 0.3s ease;
+}
+
+/* Keyboard focus rings */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Smooth article list scrolling */
+#article-list {
+  scroll-behavior: smooth;
+}

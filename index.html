@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenReview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen font-sans">
+
+  <!-- Nav -->
+  <nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+    <span class="font-bold text-lg tracking-tight">OpenReview</span>
+    <div class="flex gap-3">
+      <button id="btn-shortcuts" class="text-sm text-gray-500 hover:text-gray-800">Shortcuts (?)</button>
+      <a href="https://github.com/AidanColvin/OpenReview" target="_blank" class="text-sm text-blue-600 hover:underline">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Import Screen -->
+  <div id="import-screen" class="max-w-xl mx-auto mt-24 px-6 text-center">
+    <h1 class="text-3xl font-extrabold mb-2">Start a Review</h1>
+    <p class="text-gray-500 mb-8">Upload a .ris or .bib citation file to begin screening.</p>
+    <label id="drop-zone" class="block w-full border-2 border-dashed border-gray-300 rounded-xl p-12 cursor-pointer hover:border-blue-400 transition-colors">
+      <span class="text-gray-400 text-sm">Drop file here or click to upload</span>
+      <input type="file" id="file-input" accept=".ris,.bib" class="hidden" />
+    </label>
+    <p id="import-error" class="text-red-500 text-sm mt-3 hidden"></p>
+  </div>
+
+  <!-- Screening Screen -->
+  <div id="screening-screen" class="hidden max-w-5xl mx-auto px-6 py-6">
+
+    <!-- Progress Bar -->
+    <div class="mb-5">
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span id="stats-label">Loading...</span>
+        <span id="include-rate"></span>
+      </div>
+      <div class="flex h-3 rounded-full overflow-hidden bg-gray-200">
+        <div id="bar-included" class="bg-green-500" style="width:0%"></div>
+        <div id="bar-excluded" class="bg-red-400"   style="width:0%"></div>
+        <div id="bar-maybe"    class="bg-amber-400" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap gap-2 mb-4 items-center">
+      <input id="search-input" type="text" placeholder="Search title or abstract..."
+        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <select id="status-filter"
+        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <option value="">All decisions</option>
+        <option value="unscreened">Unscreened</option>
+        <option value="include">Included</option>
+        <option value="exclude">Excluded</option>
+        <option value="maybe">Maybe</option>
+      </select>
+      <button id="btn-undo-session" class="text-xs text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg px-3 py-1.5">Undo Session</button>
+      <button id="btn-clear" class="text-xs text-red-400 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50">Clear All</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+      <!-- Article List -->
+      <div class="md:col-span-1 bg-white rounded-xl border border-gray-200 overflow-y-auto" style="max-height:580px">
+        <div id="article-list"></div>
+      </div>
+
+      <!-- Article Detail -->
+      <div class="md:col-span-2 bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
+        <div id="article-empty" class="text-gray-400 text-sm text-center mt-16">Select an article to begin screening.</div>
+
+        <div id="article-detail" class="hidden flex flex-col gap-3">
+          <div>
+            <p id="article-meta"    class="text-xs text-gray-400 mb-1"></p>
+            <h2 id="article-title"  class="text-lg font-bold leading-snug"></h2>
+            <p id="article-authors" class="text-sm text-gray-500 mt-0.5"></p>
+          </div>
+          <p id="article-abstract" class="text-sm text-gray-700 leading-relaxed max-h-48 overflow-y-auto"></p>
+
+          <!-- Tags -->
+          <div class="flex flex-wrap gap-1 items-center">
+            <div id="article-tags" class="flex flex-wrap gap-1"></div>
+            <input id="tag-input" type="text" placeholder="Add tag and press Enter..."
+              class="border border-gray-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
+          </div>
+
+          <!-- Notes -->
+          <textarea id="notes-input" rows="2" placeholder="Add notes..."
+            class="border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-300"></textarea>
+
+          <!-- Decisions -->
+          <div class="flex gap-2">
+            <button id="btn-include" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg py-2 transition-colors">Include (I)</button>
+            <button id="btn-maybe"   class="flex-1 bg-amber-400 hover:bg-amber-500 text-white text-sm font-semibold rounded-lg py-2 transition-colors">Maybe (M)</button>
+            <button id="btn-exclude" class="flex-1 bg-red-400   hover:bg-red-500   text-white text-sm font-semibold rounded-lg py-2 transition-colors">Exclude (E)</button>
+          </div>
+
+          <!-- Navigation -->
+          <div class="flex justify-between text-xs text-gray-400 mt-1">
+            <button id="btn-previous" class="hover:text-gray-600">&#8592; Previous (K)</button>
+            <button id="btn-next"     class="hover:text-gray-600">Next (J) &#8594;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Bar -->
+    <div class="mt-4 flex flex-wrap gap-2 justify-end">
+      <button id="btn-export-csv"  class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-100">Export CSV</button>
+      <button id="btn-export-ris"  class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-100">Export Included RIS</button>
+      <button id="btn-export-json" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-100">Export JSON</button>
+    </div>
+  </div>
+
+  <!-- Snackbar -->
+  <div id="snackbar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm rounded-xl px-5 py-3 flex items-center gap-4 shadow-lg z-50">
+    <span id="snackbar-text"></span>
+    <div class="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+      <div id="snackbar-bar" class="h-full bg-white rounded-full"></div>
+    </div>
+    <button id="btn-undo" class="font-semibold text-blue-300 hover:text-blue-100">Undo</button>
+  </div>
+
+  <!-- Shortcut Overlay -->
+  <div id="shortcut-overlay" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-base">Keyboard Shortcuts</h3>
+        <button id="btn-close-overlay" class="text-gray-400 hover:text-gray-600 text-lg">&#x2715;</button>
+      </div>
+      <table class="w-full text-sm">
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="py-2 text-gray-500">Include article</td>  <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">I</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">Exclude article</td>  <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">E</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">Mark as maybe</td>    <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">M</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">Next article</td>     <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">J / &#8594;</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">Previous article</td> <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">K / &#8592;</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">Undo last</td>        <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">Ctrl+Z</kbd></td></tr>
+          <tr><td class="py-2 text-gray-500">This overlay</td>     <td><kbd class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">?</kbd></td></tr>
+        </tbody>
+      </table>
+      <button id="btn-got-it" class="mt-4 w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-semibold hover:bg-gray-700">Got it</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

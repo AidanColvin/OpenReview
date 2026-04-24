@@ -3,437 +3,313 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![UX-Evaluation](https://img.shields.io/badge/UX-Heuristic%20Validated-blue)]()
+[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)]()
 [![GitHub Pages](https://img.shields.io/badge/Deployed-GitHub%20Pages-222222.svg?logo=github)](https://aidancolvin.github.io/OpenReview)
+[![No Backend](https://img.shields.io/badge/Backend-None%20Required-lightgrey)]()
 [![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)]()
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-38B2AC?logo=tailwind-css&logoColor=white)]()
-[![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=figma&logoColor=white)]()
-[![Nielsen Heuristics](https://img.shields.io/badge/Framework-Nielsen%2010%20Heuristics-9cf)]()
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-F7DF1E?logo=javascript&logoColor=black)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-A heuristic-driven, open-source systematic review screener designed to optimize research synthesis efficiency by addressing usability gaps in existing tools like Rayyan.
+A heuristic-driven, open-source systematic review screener designed to optimize research synthesis efficiency by addressing usability gaps in existing tools.
+
+**Free. No account required. No backend. Runs entirely in your browser.**
 
 ---
 
 ## Table of Contents
 
-- [Background](#background)
-- [Project Goals](#project-goals)
-- [Scope](#scope)
-- [Methodology](#methodology)
-- [Phase 1: Heuristic Audit](#phase-1-heuristic-audit)
-- [Phase 2: High-Fidelity Redesign](#phase-2-high-fidelity-redesign)
-- [Phase 3: Portfolio Case Study Site](#phase-3-portfolio-case-study-site)
-- [Evaluation Results](#evaluation-results)
-- [Redesign Specifications](#redesign-specifications)
+- [What Is OpenReview](#what-is-openreview)
+- [Why OpenReview Exists](#why-openreview-exists)
+- [Live Demo](#live-demo)
+- [Feature Set](#feature-set)
+- [UX Design Principles](#ux-design-principles)
+- [Architecture](#architecture)
 - [Component Breakdown](#component-breakdown)
 - [Repository Structure](#repository-structure)
+- [Roadmap](#roadmap)
 - [Setup and Local Development](#setup-and-local-development)
 - [Deployment](#deployment)
+- [Contributing](#contributing)
 - [References](#references)
+- [License](#license)
 - [Author](#author)
 
 ---
 
-## Background
+## What Is OpenReview
 
-Systematic reviews require researchers to screen hundreds to thousands of citations for relevance against defined inclusion and exclusion criteria. This process is time-intensive, cognitively demanding, and error-sensitive. A single misclassification at the screening stage can distort downstream synthesis results and, in clinical contexts, affect evidence-based guidelines and policy decisions.
+OpenReview is a fully client-side, zero-cost systematic review screening tool that runs in any modern browser with no installation, no account, and no subscription. Researchers upload a citation set, screen each article for inclusion or exclusion, monitor their progress in real time, and export results in standard formats.
 
-Rayyan is one of the most widely adopted tools for this workflow. It offers collaborative screening, tagging, and export features used across academic and clinical research institutions. Despite its adoption, Rayyan's screening interface contains documented usability problems that increase cognitive load, raise error rates, and reduce reviewer throughput.
-
-OpenReview addresses this gap in two ways. First, it delivers a structured, reproducible heuristic evaluation of Rayyan's screening workflow. Second, it proposes and documents targeted interface improvements grounded in usability research. The full evaluation and redesign are presented as an interactive case study hosted on GitHub Pages.
+Everything runs in the browser using the Web Storage API for persistence. No data leaves the user's machine. No server is involved at any point in the workflow.
 
 ---
 
-## Project Goals
+## Why OpenReview Exists
 
-1. Identify and rate the highest-severity usability problems in Rayyan's article screening workflow using a structured evaluation framework.
-2. Produce concrete, implementable redesign proposals for each high-severity finding.
-3. Document the full evaluation process in a professional, publicly accessible portfolio case study.
-4. Demonstrate applied UX research methodology in the context of academic informatics tooling.
+The systematic review workflow is a cornerstone of evidence-based research. Existing tools that support this workflow are either paywalled, institutionally gated, or free with significant usability problems that slow reviewers down and introduce preventable errors.
 
----
+OpenReview was designed from the ground up using Nielsen's 10 Usability Heuristics as the primary design framework. Every interface decision maps back to a specific heuristic. The most common failure modes in competing tools were studied and corrected before a single line of code was written.
 
-## Scope
+The three design priorities driving every feature decision are:
 
-### In Scope
-
-- Citation import workflow (RIS, BibTeX file upload and processing)
-- Article screening dashboard (include, exclude, maybe decisions)
-- Progress monitoring and review status indicators
-- Search and filter functionality within a citation set
-- Keyboard shortcut discoverability and behavior
-
-### Out of Scope
-
-- Mobile application interface
-- Team and collaborator management
-- Citation export and report generation
-- Rayyan API or integration behavior
-- Account creation and onboarding flow
-
-The evaluation was conducted against the live Rayyan web application in April 2026 using a simulated review session of 200 imported records.
+1. **Error prevention over error recovery.** Actions with irreversible consequences must be undoable. The cost of a misclassification in a systematic review is high.
+2. **Visibility of system status at all times.** Reviewers must never have to navigate away from the screening view to understand their progress.
+3. **Efficiency for experienced users.** Full keyboard shortcut support is a first-class feature, not an afterthought.
 
 ---
 
-## Methodology
+## Live Demo
 
-### Evaluation Framework
+The production build is deployed at:
 
-This project uses Nielsen's 10 Usability Heuristics (1994) as the primary evaluation rubric. The heuristics are a well-validated, widely adopted framework for expert usability review. They do not require user participants and are designed to surface systematic design problems through structured expert inspection.
+**https://aidancolvin.github.io/OpenReview**
 
-The 10 heuristics evaluated are:
-
-1. Visibility of System Status
-2. Match Between System and the Real World
-3. User Control and Freedom
-4. Consistency and Standards
-5. Error Prevention
-6. Recognition Rather Than Recall
-7. Flexibility and Efficiency of Use
-8. Aesthetic and Minimalist Design
-9. Help Users Recognize, Diagnose, and Recover from Errors
-10. Help and Documentation
-
-### Severity Rating Scale
-
-Each identified problem was assigned a severity rating using Nielsen's 0 to 4 scale.
-
-| Rating | Meaning |
-|--------|---------|
-| 0 | Not a usability problem |
-| 1 | Cosmetic issue; fix only if time permits |
-| 2 | Minor usability problem; low-priority fix |
-| 3 | Major usability problem; high-priority fix |
-| 4 | Usability catastrophe; must fix before release |
-
-Severity ratings account for the frequency of the problem (how often does it occur), the impact on users when it does occur, and the persistence of the problem (does it affect one step or the entire workflow).
-
-### Audit Procedure
-
-The audit followed a structured protocol across three sessions.
-
-**Session 1 -- Familiarization (30 minutes):** Free exploration of the application without evaluation. The goal was to build familiarity with the interface before applying the framework.
-
-**Session 2 -- Heuristic Inspection (60 minutes):** Each of the 10 heuristics was applied systematically to each in-scope workflow. Problems were logged in a structured issue list with heuristic mapping, description, and evidence.
-
-**Session 3 -- Severity Rating and Prioritization (30 minutes):** Each logged issue was assigned a severity rating. Issues were grouped by heuristic and ranked for redesign prioritization.
+No login. No setup. Upload a RIS or BibTeX file and start screening.
 
 ---
 
-## Phase 1: Heuristic Audit
+## Feature Set
 
-**Duration:** 60 minutes  
-**Output:** Structured issue list with severity ratings
+### Citation Import
 
-### Step 1.1 -- Environment Setup
+- Drag-and-drop or click-to-upload interface for RIS and BibTeX files
+- Client-side parsing with no file upload to any server
+- Import validation with clear error messages for malformed files
+- Support for PubMed, Scopus, and Web of Science export formats
+- Deduplication detection on import with reviewer confirmation before removal
 
-Log into the live Rayyan web application at rayyan.ai. Create a new review project. Prepare a sample citation set of at least 200 records in RIS or BibTeX format. A publicly available PubMed export on any well-defined topic works for this purpose. Verify that the import interface accepts the file before beginning the formal audit session.
+### Screening Dashboard
 
-### Step 1.2 -- Import Simulation
+- One-at-a-time article review with full title, abstract, authors, year, and journal displayed
+- Three decision states: Include, Exclude, and Maybe
+- Full keyboard shortcut support for all decision and navigation actions (see Keyboard Shortcuts section below)
+- 8-second undo snackbar after every exclusion action with a visible countdown timer
+- Bulk decision support for multi-selected articles
+- Bulk undo for all decisions made in the current session
 
-Upload the citation file using Rayyan's import interface. Observe and document the following:
+### Progress Monitoring
 
-- Upload progress indicators and the specificity of feedback during processing
-- Time elapsed between upload submission and availability of records for screening
-- Error handling behavior if the file format is unexpected or malformed
-- Clarity of the confirmation state after a successful import completes
+- Segmented progress bar showing Include, Exclude, Maybe, and Unscreened article counts in real time
+- Include rate percentage displayed below the progress bar and updated after each decision
+- Estimated articles remaining calculated from the reviewer's current average pace
+- No navigation required to access any progress metric; all data is visible from the screening view
 
-### Step 1.3 -- Screening Session
+### Search and Filter
 
-Screen at least 100 articles using include, exclude, and maybe decisions. Intentionally introduce a small number of accidental exclusions to test recovery paths. Document the following:
+- Full-text search across title and abstract fields
+- Filter by decision status (include, exclude, maybe, unscreened)
+- Filter by tag
+- Filter state persisted in localStorage across sessions and browser restarts
+- Individual filter removal without clearing the full filter state
+- Active filter indicator visible at all times in the screening view
 
-- Decision action affordances and their visual feedback after each click
-- Availability and behavior of undo or correction flows
-- Keyboard shortcut discoverability and consistency with documented behavior
-- Progress feedback displayed during and after decisions
+### Tagging and Annotation
 
-### Step 1.4 -- Filter and Search Behavior
+- Reviewers can add free-text tags to any article
+- Tags are searchable and filterable
+- Notes field available on each article for inline annotation
+- All tags and notes persisted in localStorage
 
-Apply at least three different filter combinations using keyword, tag, and decision status filters. Navigate away from the filtered view and return. Document the following:
+### Export
 
-- Filter state persistence across navigation events
-- Clarity of the active filter indicator in the interface
-- Ease of clearing individual filters versus clearing all filters at once
+- Export full citation set with decisions as CSV
+- Export included articles only as RIS for downstream reference management
+- Export screening summary as JSON for programmatic use
+- All exports are client-side file downloads with no server involvement
 
-### Step 1.5 -- Issue Logging
+### Keyboard Shortcuts
 
-For each problem found, log the following fields in a structured issue list:
+| Action | Shortcut |
+|--------|----------|
+| Include article | I |
+| Exclude article | E |
+| Mark as maybe | M |
+| Next article | Right arrow or J |
+| Previous article | Left arrow or K |
+| Undo last decision | Ctrl + Z |
+| Open filter panel | F |
+| Clear all filters | Shift + F |
+| Open tag editor | T |
+| Open notes editor | N |
+| Open shortcut overlay | ? |
 
-- Heuristic violated (one primary heuristic per issue)
-- Workflow step where the issue occurs
-- Description of the problem in plain language
-- Evidence observed during the session
-- Preliminary severity estimate on the 0 to 4 scale
+The shortcut overlay is displayed on first use of the screening dashboard and can be reopened at any time with the "?" key or the help button in the bottom-right corner of the interface.
 
-### Step 1.6 -- Severity Rating
+### Data Privacy
 
-Review all logged issues. Assign a final severity rating on the 0 to 4 scale to each. Identify the three to five issues with the highest severity scores. These become the redesign candidates for Phase 2.
-
----
-
-## Phase 2: High-Fidelity Redesign
-
-**Duration:** 60 minutes  
-**Tool:** Figma  
-**Output:** Before and after mockups for each redesign candidate
-
-The redesign is scoped to the three highest-severity findings identified in Phase 1. Full application redesign is not the goal. Each change is targeted and justified by a specific heuristic finding.
-
-### Step 2.1 -- Screenshot Capture
-
-Take annotated screenshots of the current interface for each area targeted by a redesign. Annotations should call out the specific problem visible in the screenshot. Export at 2x resolution for use in the portfolio site. Save all screenshots to `assets/screenshots/`.
-
-### Step 2.2 -- Before Mockup
-
-In Figma, reproduce the current interface at high fidelity for each target area. Annotate problem points using Figma's comment or annotation components. The before mockup documents the current state and makes the problem visible to readers who have not used Rayyan.
-
-### Step 2.3 -- After Mockup
-
-Create a redesigned version of the same interface area in Figma. The after mockup must directly address the finding it targets. Document the design decisions using a Figma annotation layer. Each annotation should reference the heuristic it addresses and explain the design choice in one or two sentences.
-
-### Step 2.4 -- Interaction Specification
-
-For each redesign, write a short interaction spec that defines the following:
-
-- Trigger condition (what user action initiates the behavior)
-- System response (what happens visually and functionally)
-- Edge cases (what happens if the user does not interact, or interacts unexpectedly)
-- Heuristic addressed (which finding this resolves)
-
-### Step 2.5 -- Asset Export
-
-Export all before and after images as PNG files at 2x resolution. Save them to `assets/mockups/`. Name files using the pattern `finding-N-before.png` and `finding-N-after.png` where N is the finding number from the Phase 1 audit.
+- No data is transmitted to any server at any point
+- All review data is stored in the browser's localStorage
+- Data can be exported and deleted entirely from the browser at any time
+- No tracking, no analytics, no cookies beyond localStorage
 
 ---
 
-## Phase 3: Portfolio Case Study Site
+## UX Design Principles
 
-**Duration:** 60 minutes  
-**Output:** Responsive single-page site deployed to GitHub Pages
+OpenReview was designed using Nielsen's 10 Usability Heuristics as the evaluation and design framework. The following table maps each core feature to the heuristic it addresses.
 
-The case study site presents the full evaluation and redesign to a non-technical audience. It is built as a static HTML page using Tailwind CSS and requires no backend or build toolchain.
+| Heuristic | Implementation |
+|-----------|----------------|
+| Visibility of System Status | Segmented real-time progress bar with include rate and pace estimate |
+| User Control and Freedom | 8-second undo snackbar on all exclusions; bulk session undo |
+| Consistency and Standards | Keyboard shortcuts match established conventions (J/K navigation, Ctrl+Z undo) |
+| Error Prevention | Undo snackbar prevents accidental permanent exclusion |
+| Recognition Rather Than Recall | Shortcut overlay visible on first use; filter state indicator always visible |
+| Flexibility and Efficiency of Use | Full keyboard shortcut coverage for experienced users |
+| Aesthetic and Minimalist Design | Single-column screening view with no redundant controls |
+| Help and Documentation | In-app shortcut overlay; inline validation messages; no external documentation required for basic use |
 
-### Step 3.1 -- Page Structure
+### Severity Audit
 
-Create `index.html` with the following sections in order:
+Before implementation, a structured heuristic audit was conducted on the screening workflow to identify the highest-priority design problems in existing tools. The audit used Nielsen's 0 to 4 severity rating scale.
 
-- Navigation bar with project title and GitHub repository link
-- Hero section with project title, one-sentence description, and tech stack badges
-- Methodology section summarizing the heuristic framework and audit procedure
-- Usability audit section with the full severity table
-- Findings section with deep-dive writeups for the three highest-severity issues
-- Redesign section with before and after image pairs for each finding
-- Conclusion section with summary of impact and next steps
-- References section with full citations
-
-### Step 3.2 -- Severity Table
-
-Build the severity table as a responsive HTML table. Include columns for finding number, heuristic violated, issue description, and severity rating. Use Tailwind utility classes to color-code severity: red for 4, orange for 3, yellow for 2, and default for 1. Ensure the table scrolls horizontally on narrow viewports using `overflow-x-auto`.
-
-### Step 3.3 -- Before and After Image Layout
-
-For each finding with a redesign, display the before and after mockups side by side using a two-column CSS grid. The before column uses a neutral border. The after column uses a blue border to visually distinguish the proposed state. Include a caption below each image identifying it as before or after and naming the finding it addresses.
-
-### Step 3.4 -- Responsive Layout
-
-The page must be readable on both desktop and mobile viewports. Use Tailwind's responsive prefixes (`md:`, `lg:`) to collapse two-column layouts to single column on narrow viewports. Test at 375px and 1280px viewport widths before deploying.
-
-### Step 3.5 -- Accessibility Check
-
-Verify the following before deployment:
-
-- All images have descriptive `alt` attributes
-- Color is not the only means of conveying severity information
-- Heading levels are used in logical order (h1, h2, h3)
-- All links have visible focus states
+| # | Heuristic | Problem Identified in Existing Tools | Severity | OpenReview Solution |
+|---|-----------|---------------------------------------|----------|---------------------|
+| 1 | Error Prevention | Single-click exclusion with no undo | 4 | 8-second undo snackbar on every exclusion |
+| 2 | Visibility of System Status | Progress bar shows total count only, no decision breakdown | 3 | Segmented four-state progress bar, always visible |
+| 3 | Consistency and Standards | Keyboard shortcuts undocumented inside the interface | 3 | First-use overlay, persistent "?" button |
+| 4 | User Control and Freedom | No bulk undo for multi-select exclusions | 3 | Session-level bulk undo |
+| 5 | Recognition Rather Than Recall | Filter state not persisted between sessions | 2 | Filter state saved to localStorage on change |
+| 6 | Help and Documentation | Help links point to outdated external documentation | 2 | All help is inline; no external links required |
+| 7 | Aesthetic and Minimalist Design | Redundant action buttons in sidebar duplicate header controls | 1 | Single action surface; no duplicated controls |
 
 ---
 
-## Evaluation Results
+## Architecture
 
-Seven usability issues were identified across six heuristics. The three highest-severity findings are documented in full below.
+OpenReview is a fully static single-page application. There is no backend, no build system, and no package manager required to run it. The entire application is shipped as a single `index.html` file with inlined or CDN-referenced CSS and JavaScript.
 
-### Finding 1 -- Error Prevention
+### Technology Decisions
 
-**Heuristic:** Error Prevention  
-**Severity:** 4 / 4  
-**Workflow Step:** Article screening (exclude action)
+| Layer | Technology | Reason |
+|-------|------------|--------|
+| Markup | HTML5 | No framework overhead; deployable as a static file |
+| Styling | Tailwind CSS (CDN) | Utility-first; no build step required for CDN usage |
+| Logic | Vanilla ES6+ JavaScript | No dependencies; runs in any modern browser |
+| Persistence | Web Storage API (localStorage) | Client-side only; no server; survives browser restarts |
+| File parsing | Custom JS parser | Handles RIS and BibTeX without a library dependency |
+| File export | Blob API + anchor download | Client-side file generation; no server required |
+| Hosting | GitHub Pages | Free static hosting; deploys on push to main |
 
-**Description:** The exclude action executes on a single click with no confirmation dialog and no time-limited undo. In a citation set of 5,000 records, a misclick silently moves an article into the excluded pile. The reviewer receives no visible feedback that the action occurred and has no recovery path other than a manual search through the excluded list followed by a reclassification. This is a critical data integrity risk. Errors at this stage propagate into the final included set and can affect the validity of the entire review.
+### Data Model
 
-**Evidence:** Three accidental exclusions occurred during a 200-article test session using a standard mouse on a 15-inch display. None triggered any visible feedback. Recovery required navigating to the excluded tab and manually searching for the affected article.
+All review data is stored as a single JSON object in localStorage under the key `openreview_data`. The schema is as follows:
 
-| Attribute | Assessment |
-|-----------|------------|
-| Frequency | High. Any user screening more than 50 articles per session is likely to encounter this. |
-| Impact | Catastrophic. An undetected misclassification can exclude relevant evidence from a published review. |
-| Persistence | Affects every screening session for every user on every dataset size. |
+```json
+{
+  "review": {
+    "id": "string",
+    "title": "string",
+    "created_at": "ISO8601",
+    "updated_at": "ISO8601"
+  },
+  "articles": [
+    {
+      "id": "string",
+      "title": "string",
+      "abstract": "string",
+      "authors": ["string"],
+      "year": "number",
+      "journal": "string",
+      "doi": "string",
+      "decision": "include | exclude | maybe | unscreened",
+      "tags": ["string"],
+      "notes": "string",
+      "screened_at": "ISO8601 | null"
+    }
+  ],
+  "filters": {
+    "status": "string | null",
+    "tag": "string | null",
+    "query": "string | null"
+  },
+  "session": {
+    "decisions_this_session": "number",
+    "session_start": "ISO8601"
+  }
+}
+```
 
----
+### State Management
 
-### Finding 2 -- Visibility of System Status
+Application state is managed through a single global state object in JavaScript. State changes trigger a re-render of the affected UI component. No virtual DOM or reactive framework is used. All DOM manipulation is direct.
 
-**Heuristic:** Visibility of System Status  
-**Severity:** 3 / 4  
-**Workflow Step:** Progress monitoring during and between screening sessions
-
-**Description:** The progress indicator displays a total article count and a screened count. It does not break down screened articles by decision type. Reviewers cannot determine the current include rate, exclude rate, or ratio of maybe decisions without navigating to a separate statistics panel that is not visible from the screening view. Teams working on large reviews have no way to monitor decision drift or detect systematic errors in real time.
-
-**Evidence:** During a 200-article session, the ratio of included to excluded articles was not determinable from the screening dashboard without leaving the current view. The statistics panel is accessible only via a separate navigation item and does not update live during a session.
-
-| Attribute | Assessment |
-|-----------|------------|
-| Frequency | Medium. Affects all users who need to monitor progress in real time, which is the majority of multi-session reviewers. |
-| Impact | Moderate to high. Without real-time decision breakdown, systematic errors go undetected until an audit. |
-| Persistence | Affects every screening session. |
-
----
-
-### Finding 3 -- Consistency and Standards
-
-**Heuristic:** Consistency and Standards  
-**Severity:** 3 / 4  
-**Workflow Step:** Keyboard-driven article screening
-
-**Description:** Keyboard shortcuts are available in the web interface but are not documented within the interface itself. No shortcut overlay, tooltip, or onboarding hint is shown on first use. The available shortcuts differ between the web and mobile interfaces with no explanation of the discrepancy. New users discover shortcuts only through external help documentation or community forums. Experienced users who switch between platforms encounter inconsistent behavior with no in-app reference.
-
-**Evidence:** No shortcut hint or overlay was displayed during the first session or any subsequent session. A "?" key press did not trigger any help overlay. The keyboard shortcut set was found only by navigating to an external help article linked from the Rayyan homepage.
-
-| Attribute | Assessment |
-|-----------|------------|
-| Frequency | High. Affects all new users and any user who works across web and mobile. |
-| Impact | Moderate. Users who do not discover shortcuts rely on mouse-only interaction, increasing screening time for large citation sets. |
-| Persistence | Permanent until shortcuts are documented in the interface. |
-
----
-
-### Full Severity Table
-
-| # | Heuristic | Issue | Severity |
-|---|-----------|-------|----------|
-| 1 | Error Prevention | Single-click exclusion with no undo | 4 |
-| 2 | Visibility of System Status | Progress bar lacks decision-type breakdown | 3 |
-| 3 | Consistency and Standards | Keyboard shortcuts undocumented and platform-inconsistent | 3 |
-| 4 | User Control and Freedom | No bulk undo for multi-select exclusions | 3 |
-| 5 | Recognition Rather Than Recall | Filter state not persisted between sessions | 2 |
-| 6 | Help and Documentation | In-app help links point to outdated external docs | 2 |
-| 7 | Aesthetic and Minimalist Design | Redundant action buttons in sidebar duplicate header controls | 1 |
-
----
-
-## Redesign Specifications
-
-The redesign targets the three severity-3 and severity-4 findings. No changes are proposed outside the screening dashboard. Each specification is written to be directly implementable by a frontend engineer without further clarification.
-
-### Redesign 1 -- Persistent Undo Snackbar
-
-**Addresses:** Finding 1 (Error Prevention, Severity 4)
-
-**Description:** A transient snackbar component appears at the bottom center of the screen immediately after any exclude action. The snackbar displays the title of the excluded article truncated to 60 characters and a single "Undo" button. The user has 8 seconds to click undo before the exclusion is committed. A visible countdown indicator shows the remaining time.
-
-**Interaction Specification:**
-
-| Property | Value |
-|----------|-------|
-| Trigger | User clicks or keyboard-shortcuts to exclude an article |
-| Snackbar position | Bottom center, 24px above viewport edge |
-| Display duration | 8 seconds |
-| Countdown indicator | Linear progress bar depleting left to right |
-| Undo action | Restores article to unscreened state, returns it to top of queue |
-| Auto-dismiss | Snackbar fades out, exclusion committed |
-| Stacking behavior | Only one snackbar visible at a time; rapid exclusions reset the 8-second timer |
-| Keyboard access | Focus moves to snackbar on appearance; Enter or Space activates undo; Escape dismisses |
-
-**Design rationale:** This pattern is established in Material Design and used in Gmail, Google Drive, and other high-frequency-action interfaces. It introduces zero friction for users who do not need undo and provides a reliable recovery path for those who do. An 8-second window is long enough for intentional recovery and short enough that the commit feels immediate.
-
----
-
-### Redesign 2 -- Segmented Decision Progress Bar
-
-**Addresses:** Finding 2 (Visibility of System Status, Severity 3)
-
-**Description:** The existing single-segment progress bar is replaced with a four-segment bar that displays the proportion of articles in each decision state: included, excluded, maybe, and unscreened. Each segment displays its article count on hover. The bar updates in real time after each decision without a page reload. A secondary stat line below the bar displays the current include rate as a percentage and the estimated number of articles remaining at the reviewer's current pace.
-
-**Interaction Specification:**
-
-| Property | Value |
-|----------|-------|
-| Segments | Included (#22C55E green), Excluded (#EF4444 red), Maybe (#F59E0B amber), Unscreened (#D1D5DB gray) |
-| Segment width | Proportional to article count in each state |
-| Hover tooltip | Displays count and percentage for the hovered segment |
-| Update trigger | Real-time after each decision action |
-| Secondary stat line | "Include rate: X% | Estimated remaining: N articles at current pace" |
-| Minimum segment width | 4px for any non-zero state, to ensure visibility at small proportions |
-
-**Design rationale:** Reviewers working on large datasets need to monitor decision patterns to catch criteria drift early. Displaying the decision breakdown in the persistent progress bar eliminates the need to navigate away from the screening view to access this information.
-
----
-
-### Redesign 3 -- In-App Keyboard Shortcut Overlay
-
-**Addresses:** Finding 3 (Consistency and Standards, Severity 3)
-
-**Description:** A modal overlay displays all available keyboard shortcuts the first time a user accesses the screening view. The overlay can be re-opened at any time using the "?" key or a persistent help button in the bottom-right corner of the interface. Shortcuts are grouped into three categories: Decision Actions, Navigation, and Filters. Where a shortcut differs between web and mobile, both are shown in the same row with a platform label.
-
-**Interaction Specification:**
-
-| Property | Value |
-|----------|-------|
-| First display | Triggered on first visit to screening view, per user account |
-| Re-open trigger | "?" key press or persistent "?" icon button (bottom-right, 48x48px) |
-| Dismiss | Escape key, click outside overlay, or explicit "Got it" button |
-| Persistence | First-time display suppressed after acknowledgment; stored in user preferences |
-| Shortcut groups | Decision Actions, Navigation, Filters |
-| Platform columns | Web shortcut and Mobile shortcut side by side where different |
-| Overlay size | Max-width 560px, centered, with backdrop |
-
-**Shortcut Reference Displayed in Overlay:**
-
-| Action | Web Shortcut | Mobile Shortcut |
-|--------|-------------|----------------|
-| Include article | I | Swipe right |
-| Exclude article | E | Swipe left |
-| Mark as maybe | M | Tap Maybe button |
-| Next article | Right arrow or J | Swipe up |
-| Previous article | Left arrow or K | Swipe down |
-| Open filter panel | F | Tap filter icon |
-| Clear all filters | Shift + F | Not supported |
-| Open shortcut overlay | ? | Tap help icon |
-
-**Design rationale:** Keyboard shortcuts reduce mouse travel time significantly in high-volume screening sessions. Making shortcuts discoverable inside the interface converts a hidden power-user feature into a standard workflow tool available to all users from their first session.
+The state object is written to localStorage on every change. On page load, state is read from localStorage and used to restore the previous session in full, including filter state, scroll position, and the current article in queue.
 
 ---
 
 ## Component Breakdown
 
-The following components make up the full deliverable set for this project.
+The following components make up the complete application.
 
-### Audit Deliverables
+### Parser Module (`js/parser.js`)
 
-| Component | Description | Location |
-|-----------|-------------|----------|
-| Issue log | All seven findings with heuristic mapping, evidence, and severity rating | This README and `index.html` |
-| Session screenshots | Annotated screenshots from the live audit session | `assets/screenshots/` |
-| Severity table | Full ranked table of all findings | `index.html` and this README |
+Responsible for reading RIS and BibTeX files and converting them into the internal article schema.
 
-### Redesign Deliverables
+| Function | Input | Output |
+|----------|-------|--------|
+| `parseRIS(text)` | Raw RIS file content as string | Array of article objects |
+| `parseBibTeX(text)` | Raw BibTeX file content as string | Array of article objects |
+| `deduplicateArticles(articles)` | Array of article objects | Deduplicated array with conflict report |
+| `validateArticle(article)` | Single article object | Validation result with field-level errors |
 
-| Component | Description | Location |
-|-----------|-------------|----------|
-| Finding 1 before mockup | Current exclude-action interface, annotated | `assets/mockups/finding-1-before.png` |
-| Finding 1 after mockup | Undo snackbar design with countdown indicator | `assets/mockups/finding-1-after.png` |
-| Finding 2 before mockup | Current single-segment progress bar | `assets/mockups/finding-2-before.png` |
-| Finding 2 after mockup | Segmented four-state progress bar with stat line | `assets/mockups/finding-2-after.png` |
-| Finding 3 before mockup | Screening view with no shortcut documentation visible | `assets/mockups/finding-3-before.png` |
-| Finding 3 after mockup | Shortcut overlay design with grouped action categories | `assets/mockups/finding-3-after.png` |
-| Figma source file | Editable Figma file with all before and after frames | Linked in `index.html` |
+### Storage Module (`js/storage.js`)
 
-### Site Deliverables
+Responsible for reading from and writing to localStorage.
 
-| Component | Description | Location |
-|-----------|-------------|----------|
-| `index.html` | Responsive single-page portfolio case study | Root |
-| `css/custom.css` | Supplemental styles not covered by Tailwind CDN | `css/` |
-| Deployed site | Live GitHub Pages site | https://aidancolvin.github.io/OpenReview |
+| Function | Input | Output |
+|----------|-------|--------|
+| `loadState()` | None | Full state object or null |
+| `saveState(state)` | Full state object | void |
+| `clearState()` | None | void |
+| `exportJSON(state)` | Full state object | JSON file download |
+
+### Screening Module (`js/screening.js`)
+
+Responsible for the article decision workflow.
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `makeDecision(articleId, decision)` | Article ID, decision string | Updated state |
+| `undoLastDecision(state)` | Full state object | State with last decision reversed |
+| `undoSession(state)` | Full state object | State with all session decisions reversed |
+| `getNextArticle(state)` | Full state object | Next article object in queue |
+| `getPreviousArticle(state)` | Full state object | Previous article object in queue |
+
+### Filter Module (`js/filter.js`)
+
+Responsible for search and filter logic.
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `applyFilters(articles, filters)` | Articles array, filters object | Filtered articles array |
+| `searchArticles(articles, query)` | Articles array, search string | Filtered articles array |
+| `saveFilters(filters)` | Filters object | void (writes to localStorage) |
+| `loadFilters()` | None | Filters object from localStorage |
+
+### Export Module (`js/export.js`)
+
+Responsible for generating export files.
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `exportCSV(articles)` | Articles array | CSV file download |
+| `exportRIS(articles, decision)` | Articles array, decision filter string | RIS file download |
+| `exportJSON(state)` | Full state object | JSON file download |
+
+### UI Module (`js/ui.js`)
+
+Responsible for all DOM rendering and event binding.
+
+| Function | Responsibility |
+|----------|----------------|
+| `renderProgressBar(state)` | Draws segmented progress bar with current decision counts |
+| `renderArticle(article)` | Renders current article title, abstract, and metadata |
+| `renderSnackbar(article)` | Shows undo snackbar with 8-second countdown |
+| `renderFilterPanel(filters)` | Draws filter panel with current active state |
+| `renderShortcutOverlay()` | Renders keyboard shortcut reference modal |
+| `bindKeyboardShortcuts(state)` | Attaches all keyboard event listeners |
 
 ---
 
@@ -441,30 +317,69 @@ The following components make up the full deliverable set for this project.
 
 ```
 OpenReview/
-├── index.html                    # Portfolio case study (rendered on GitHub Pages)
-├── assets/
-│   ├── screenshots/              # Annotated screenshots from the live audit session
-│   │   ├── import-flow.png
-│   │   ├── screening-dashboard.png
-│   │   ├── progress-bar-current.png
-│   │   └── no-shortcut-overlay.png
-│   └── mockups/                  # Figma exports of before and after designs
-│       ├── finding-1-before.png
-│       ├── finding-1-after.png
-│       ├── finding-2-before.png
-│       ├── finding-2-after.png
-│       ├── finding-3-before.png
-│       └── finding-3-after.png
+├── index.html                    # Application entry point (GitHub Pages root)
+├── js/
+│   ├── app.js                    # Application bootstrap and state initialization
+│   ├── parser.js                 # RIS and BibTeX file parsing
+│   ├── storage.js                # localStorage read/write and JSON export
+│   ├── screening.js              # Decision logic and undo stack
+│   ├── filter.js                 # Search and filter logic
+│   ├── export.js                 # CSV, RIS, and JSON export generation
+│   └── ui.js                    # DOM rendering and event binding
 ├── css/
 │   └── custom.css                # Supplemental styles beyond Tailwind CDN
+├── assets/
+│   └── screenshots/              # UI screenshots for documentation
+├── tests/
+│   └── parser.test.js            # Unit tests for the parser module
+├── CONTRIBUTING.md               # Contribution guidelines
+├── LICENSE                       # MIT License
 └── README.md                     # This file
 ```
 
 ---
 
+## Roadmap
+
+### v1.0 -- Core Screener (Current)
+
+- RIS and BibTeX import
+- Include, Exclude, Maybe decisions
+- 8-second undo snackbar
+- Segmented progress bar
+- Keyboard shortcut overlay
+- localStorage persistence
+- CSV, RIS, and JSON export
+
+### v1.1 -- Collaboration
+
+- Shareable review state via URL-encoded JSON or exported file
+- Conflict resolution view for disagreements between two independent screeners
+- Inter-rater agreement calculation (Cohen's kappa) displayed in the progress panel
+
+### v1.2 -- PRISMA Flow Diagram
+
+- Auto-generated PRISMA 2020 flow diagram based on screening decisions
+- Exportable as SVG or PNG
+- Counts populated automatically from the current review state
+
+### v1.3 -- Abstract Highlighting
+
+- Keyword highlighting in the abstract view based on user-defined inclusion and exclusion terms
+- Terms saved per review and persisted across sessions
+
+### v2.0 -- AI-Assisted Screening
+
+- Optional Claude API integration for abstract-level relevance scoring
+- AI suggestions displayed alongside the abstract with a confidence score
+- Reviewer retains full decision authority; AI suggestions are advisory only
+- API key entered by the user and stored in localStorage; not transmitted to any OpenReview server
+
+---
+
 ## Setup and Local Development
 
-No build step is required. The case study site is static HTML with a Tailwind CDN import.
+No build step is required. The application is plain HTML, CSS, and JavaScript.
 
 **Clone the repository:**
 
@@ -479,41 +394,65 @@ cd OpenReview
 open index.html
 ```
 
-**Serve with a local static server:**
+**Serve with a local static server (recommended for localStorage to function correctly across reloads):**
 
 ```bash
 npx serve .
 ```
 
-The site requires no environment variables, API keys, or backend services. Internet access is required only to load the Tailwind CDN script.
-
-**To run without an internet connection**, download the Tailwind CSS production build and reference it as a local file:
+**Run parser unit tests:**
 
 ```bash
-curl -o css/tailwind.min.css https://cdn.tailwindcss.com/tailwind.min.css
+node tests/parser.test.js
 ```
 
-Then replace the `<script src="https://cdn.tailwindcss.com">` tag in `index.html` with a `<link rel="stylesheet" href="css/tailwind.min.css">` tag.
+No environment variables, API keys, or package installation is required for core functionality.
 
 ---
 
 ## Deployment
 
-The site deploys automatically to GitHub Pages from the `main` branch root on every push.
+The application deploys automatically to GitHub Pages from the `main` branch on every push.
 
 **Initial setup:**
 
-1. Push all files to the `main` branch of a GitHub repository named `OpenReview`.
-2. In the repository, go to Settings > Pages.
-3. Under "Build and deployment," select "Deploy from a branch."
-4. Set the branch to `main` and the folder to `/` (root).
-5. Click Save.
+1. Fork or clone this repository.
+2. Push all files to the `main` branch of a GitHub repository.
+3. Go to Settings > Pages.
+4. Under "Build and deployment," select "Deploy from a branch."
+5. Set the branch to `main` and the folder to `/` (root).
+6. Click Save.
 
-The site will be available at `https://aidancolvin.github.io/OpenReview` within 60 to 90 seconds of the first push.
+The application will be live at `https://<your-username>.github.io/OpenReview` within 60 to 90 seconds of the first push.
 
 **Subsequent deployments:** Any push to `main` triggers an automatic redeploy. No additional configuration is required.
 
-**Custom domain (optional):** Add a `CNAME` file to the repository root containing your domain name, then configure your DNS provider to point the domain to `aidancolvin.github.io`.
+There is no build process, no CI pipeline, and no environment configuration. The deployment is the repository.
+
+---
+
+## Contributing
+
+OpenReview is open source under the MIT License. Contributions are welcome.
+
+**To contribute:**
+
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Make your changes. Add tests for any new logic in `tests/`.
+4. Commit with a descriptive message: `git commit -m "Add BibTeX deduplication on import"`
+5. Push to your fork: `git push origin feature/your-feature-name`
+6. Open a pull request against the `main` branch of this repository.
+
+**Contribution guidelines:**
+
+- All JavaScript must be ES6+ with no build step or transpilation required.
+- New modules must follow the function signature format documented in the Component Breakdown section.
+- All user-facing strings must be written in plain language. No jargon.
+- All new UI components must pass the accessibility checklist in `CONTRIBUTING.md`.
+- Pull requests that introduce a backend dependency will not be accepted. The zero-backend constraint is a core design requirement.
+
+Bug reports and feature requests can be filed as GitHub Issues using the provided templates.
 
 ---
 
@@ -525,17 +464,17 @@ Nielsen, J. (1994). *Severity Ratings for Usability Problems*. Nielsen Norman Gr
 
 Nielsen, J., and Molich, R. (1990). Heuristic evaluation of user interfaces. *Proceedings of the ACM CHI 90 Human Factors in Computing Systems Conference*, 249-256.
 
-Yu, F., Liu, C., and Sharmin, S. (2022). Performance, usability, and user experience of Rayyan for systematic reviews. *Proceedings of the Association for Information Science and Technology*, 59(1), 598-600.
+Page, M. J., McKenzie, J. E., Bossuyt, P. M., Boutron, I., Hoffmann, T. C., Mulrow, C. D., and Moher, D. (2021). The PRISMA 2020 statement: an updated guideline for reporting systematic reviews. *BMJ*, 372, n71.
 
-Ouzzani, M., Hammady, H., Fedorowicz, Z., and Elmagarmid, A. (2016). Rayyan -- a web and mobile app for systematic reviews. *Systematic Reviews*, 5(1), 210.
-
-Rayyan Systems Inc. (2024). *Rayyan -- Intelligent Systematic Review*. https://www.rayyan.ai
+Higgins, J. P. T., Thomas, J., Chandler, J., Cumpston, M., Li, T., Page, M. J., and Welch, V. A. (Eds.) (2023). *Cochrane Handbook for Systematic Reviews of Interventions* (version 6.4). Cochrane. https://training.cochrane.org/handbook
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for full terms.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and sell copies of this software. Attribution is appreciated but not required.
 
 ---
 
