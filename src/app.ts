@@ -2,7 +2,7 @@
  * app.ts
  * Single state owner. Wires all modules. No logic in HTML.
  */
-import { Article, AppState, Decision, makeFilter, makeStats } from './models';
+import { Article, AppState, Decision, makeFilter, makeStats, makeArticle } from './models';
 import { loadArticles, saveArticles, clearArticles, loadFilters, saveFilters } from './storage';
 import { parseRIS, parseBibTeX, deduplicateArticles, parsePdf, parseDocx } from './parser';
 import { makeDecision, undoLastDecision, undoSession, getNextArticle, getPreviousArticle } from './screening';
@@ -125,24 +125,14 @@ function renderImportList(): void {
   startBtn.style.cursor     = 'pointer';
 
   list.innerHTML = state.articles.map((a, i) => {
-    let dTitle = a.title || '(No title)';
-    let isFile = /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(dTitle);
-    let dMeta = '';
-
-    // Swap filename for abstract if it's a raw file
-    if (isFile && a.abstract && a.abstract.length > 10 && !a.abstract.includes("Could not extract text")) {
-        dMeta = dTitle; 
-        dTitle = a.abstract.substring(0, 150) + (a.abstract.length > 150 ? '...' : ''); 
-    }
-
-    const authors = a.authors ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
-    const meta    = [dMeta, authors, a.journal, a.year].filter(Boolean).join(' · ');
+    const authors = a.authors && a.authors.length > 0 ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
+    const meta    = [a.journal, authors, a.year].filter(Boolean).join(' · ');
     const last    = i === state.articles.length - 1;
     
     return `
       <div class="article-row" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;${last ? '' : 'border-bottom:1px solid #f0ece8'}">
         <div style="flex:1;min-width:0">
-          <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(dTitle)}">${esc(dTitle)}</p>
+          <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(a.title)}">${esc(a.title)}</p>
           <p style="font-size:11px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(meta)}</p>
         </div>
         <span style="flex-shrink:0;font-size:11px;font-weight:600;color:#c4622d;background:#fdf0ea;padding:2px 7px;border-radius:4px;margin-top:2px">imported</span>
@@ -161,39 +151,38 @@ function handleUpload(file: File): void {
 
   const finalize = (parsed: Article[]): void => {
     parsed.forEach(p => { 
-        if (!p.title) p.title = file.name; 
         if (!p.id) p.id = Math.random().toString(36).substring(2);
+        
+        // FIX: Extract true text to title, and put filename in journal
+        const abstractText = p.abstract?.trim() || "";
+        if (abstractText.length > 15 && !abstractText.includes("Could not extract text") && !abstractText.includes("File imported")) {
+            p.journal = file.name; // Moves "03.pdf" to the gray subtext
+            p.title = abstractText.substring(0, 120) + "..."; // Bolds the extracted PDF text
+        } else {
+            if (!p.title) p.title = file.name;
+            p.journal = file.name;
+        }
     });
     
-    // STACK FILES! Bypass the deduplicator for uploads so nothing deletes silently.
+    // FIX: Stack everything on top! Guaranteed no overwrite.
     state.articles = [...parsed, ...state.articles];
     saveArticles(state.articles);
     renderImportList();
     
-    okEl.textContent = parsed.length + ' article(s) added from ' + file.name + '.';
+    okEl.textContent = 'Successfully processed: ' + file.name;
     okEl.style.display = 'block';
   };
 
-  // ULTIMATE TYPESCRIPT OVERRIDE: Force compiler to accept the fallback object blindly
-  const fallbackArticle = { 
-    id: Math.random().toString(36).substring(2), 
-    title: file.name, 
-    authors: [], 
-    abstract: "Could not extract text.", 
-    decision: "unscreened",
-    year: null,
-    journal: file.name,
-    doi: '',
-    tags: []
-  } as unknown as Article;
+  // FIX: Safely use makeArticle to bypass TypeScript strictness
+  const fallback = () => finalize([makeArticle({ title: file.name, abstract: "Could not extract text.", journal: file.name })]);
 
   if (name.endsWith('.pdf')) {
-    parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle]));
+    parsePdf(file).then(finalize).catch(fallback);
     return;
   }
 
   if (name.endsWith('.docx')) {
-    parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle]));
+    parseDocx(file).then(finalize).catch(fallback);
     return;
   }
 
@@ -204,7 +193,7 @@ function handleUpload(file: File): void {
     if      (name.endsWith('.ris')) parsed = parseRIS(text);
     else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
     else {
-      parsed = [{ ...fallbackArticle, abstract: "File imported." } as unknown as Article];
+      parsed = [makeArticle({ title: file.name, abstract: "File imported.", journal: file.name })];
     }
     finalize(parsed);
   };
