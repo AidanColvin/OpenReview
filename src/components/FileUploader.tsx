@@ -1,38 +1,44 @@
 import React, { useState } from 'react';
 
+/**
+ * FileUploader Component
+ * Handles multiple uploads for various research formats.
+ * Displays human-readable filenames instead of binary strings.
+ */
 const FileUploader: React.FC = () => {
-  const [articles, setArticles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
 
-  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      const newFiles = Array.from(event.target.files);
-      // Phase 5: Append to list so previous files do not disappear
-      setArticles((prev) => [...prev, ...newFiles]);
+      // Logic to hold and present numerous files at once
+      const selectedFiles = Array.from(event.target.files);
+      setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
     }
   };
 
   return (
-    <div className="uploader-container">
-      <label htmlFor="file-upload" className="upload-label">
-        {/* Phase 2: Exact Text Matching */}
+    <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
+      {/* Task 1 & 2: Updated Display Text and Input Logic */}
+      <label htmlFor="file-upload" style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>
         Drop a PDF, Docx, RIS, or BibTeX file here or click here to upload from your computer
       </label>
+      
       <input
         id="file-upload"
         type="file"
-        // Phase 1: Multiple uploads and specific formats
-        multiple
+        multiple={true}
         accept=".pdf,.docx,.ris,.bib,.zip,.rar,.xlsx,.xls,.csv,.tsv,.png,.jpg"
-        onChange={handleUpload}
-        style={{ display: 'none' }}
+        onChange={handleFileChange}
       />
 
-      <div className="articles-section">
-        <h3>Articles</h3>
-        <ul>
-          {articles.map((file, index) => (
-            // Phase 3: Using file.name to avoid garbled binary text
-            <li key={index}>{file.name}</li>
+      <div style={{ marginTop: '30px' }}>
+        <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #333' }}>Articles</h2>
+        <ul style={{ listStyleType: 'none', padding: 0 }}>
+          {files.map((file, index) => (
+            <li key={`${file.name}-${index}`} style={{ padding: '8px 0', borderBottom: '1px solid #eee' }}>
+              {/* Fix: Displays actual filename instead of garbled text */}
+              📄 <strong>{file.name}</strong>
+            </li>
           ))}
         </ul>
       </div>
