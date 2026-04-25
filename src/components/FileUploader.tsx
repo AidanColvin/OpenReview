@@ -25,7 +25,7 @@ const FileUploader: React.FC = () => {
       
       <input
         id="file-upload"
-        type="file" multiple={true} accept=".pdf,.docx,.ris,.bib,.zip,.rar,.xlsx,.xls,.csv,.tsv,.png,.jpg"
+        type="file" multiple={true} accept=".pdf,.docx,.ris,.bib,.zip,.rar,.xlsx,.xls,.csv,.tsv,.png,.jpg" multiple={true} accept=".pdf,.docx,.ris,.bib,.zip,.rar,.xlsx,.xls,.csv,.tsv,.png,.jpg"
         multiple={true}
         accept=".pdf,.docx,.ris,.bib,.zip,.rar,.xlsx,.xls,.csv,.tsv,.png,.jpg"
         onChange={handleFileChange}
