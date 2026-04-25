@@ -3,10 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V15</title>
+  <title>OpenReview V13</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <script type="module" crossorigin src="/OpenReview/assets/index-gN85FmBo.js"></script>
+  <style>
+    .nav-tab { font-size: 0.875rem; color: #666; padding: 0.5rem 1rem; cursor: pointer; border: none; background: none; font-weight: 500; }
+    .nav-tab.active { color: #000; font-weight: 700; }
+    .nav-tab:hover { color: #000; }
+    .or-wordmark { font-family: serif; font-weight: bold; }
+    .accent { color: #c4622d; }
+  </style>
+  <script type="module" crossorigin src="/OpenReview/assets/index-BrHvA736.js"></script>
 </head>
 <body style="background:#faf9f7;min-height:100vh">
 
@@ -18,9 +25,9 @@
 </div>
 
 <div id="main-app" class="hidden flex flex-col" style="min-height:100vh">
-  <nav style="height:52px;background:#fff;border-bottom:1px solid #e8e4df;position:sticky;top:0;z-index:50" class="flex items-center px-6 gap-6">
-    <div class="flex items-center gap-2 flex-shrink-0">
-      <img src="/OpenReview/openreview_icon.png" alt="OpenReview" style="width:22px;height:22px;border-radius:50%;object-fit:cover" />
+  <nav style="height:52px;background:#fff;border-bottom:1px solid #e8e4df;position:sticky;top:0;z-index:50" class="flex items-center px-6">
+    <div class="flex items-center gap-2">
+      <img src="/OpenReview/openreview_icon.png" alt="OpenReview" style="width:22px;height:22px;border-radius:50%;" />
       <span class="or-wordmark" style="font-size:1.1rem"><span>Open</span><span class="accent">Review</span></span>
     </div>
     <div class="flex-1"></div>
@@ -29,8 +36,8 @@
       <button id="nav-screening" class="nav-tab">Screening</button>
       <button id="nav-analysis" class="nav-tab">Analysis</button>
       <button id="nav-export" class="nav-tab">Export</button>
+      <button id="btn-shortcuts" style="font-size:0.8rem;color:#9e9e9e;margin-left:1rem;background:none;border:none;cursor:pointer">Shortcuts (?)</button>
     </div>
-    <button id="btn-shortcuts" style="font-size:0.8rem;color:#9e9e9e;margin-left:1rem;background:none;border:none;cursor:pointer">Shortcuts (?)</button>
   </nav>
 
   <div id="home-screen" class="hidden flex-1 or-home-bg"></div>
@@ -39,12 +46,8 @@
     <div style="display:grid;grid-template-columns:420px 1fr;gap:2.5rem;align-items:start">
       
       <div>
-        <div style="margin-bottom:1.75rem">
-          <h1 id="review-title-display" class="or-wordmark" style="font-size:1.75rem;line-height:1.2;margin-bottom:0.25rem">New Review</h1>
-          <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
-            <button id="btn-inclusion-criteria" style="font-size:0.8rem;color:#c4622d;font-weight:500;background:none;border:none;cursor:pointer;padding:0;">Inclusion criteria →</button>
-          </div>
-        </div>
+        <h1 id="review-title-display" class="or-wordmark" style="font-size:1.75rem;line-height:1.2;margin-bottom:0.25rem">New Review</h1>
+        <button id="btn-inclusion-criteria" style="font-size:0.8rem;color:#c4622d;font-weight:500;background:none;border:none;cursor:pointer;padding:0;margin-bottom:1rem">Inclusion criteria →</button>
 
         <label id="drop-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #d0cbc4;border-radius:10px;padding:22px 16px;cursor:pointer;text-align:center;margin-bottom:18px;min-height:110px">
           <p style="font-size:14px;color:#555;margin-bottom:10px;font-weight:500">Drop PDF here or click to upload</p>
@@ -53,27 +56,25 @@
 
         <div style="border:1px solid #e8e4df;border-radius:10px;overflow:hidden;background:#fff">
           <div style="padding:0.75rem 1rem;border-bottom:1px solid #f0ece8;font-weight:600;font-size:0.875rem">Articles</div>
-          <div id="import-article-list" style="max-height:320px;overflow-y:auto">
-            <p id="import-list-empty" style="font-size:0.8rem;color:#9e9e9e;text-align:center;padding:2rem 1rem;margin:0">No articles yet.</p>
-          </div>
+          <div id="import-article-list" style="max-height:320px;overflow-y:auto"></div>
         </div>
       </div>
 
       <div>
         <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:#9e9e9e;margin-bottom:0.5rem">Search Papers</p>
         <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
-          <input id="crossref-input" type="text" placeholder="Title, author, keyword..." class="or-input" style="flex:1" />
+          <input id="crossref-input" type="text" placeholder="Title, author, keyword..." class="or-input" style="flex:1; border:1px solid #e8e4df; border-radius:7px; padding:0.5rem;" />
           <button id="btn-crossref-search" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.875rem;padding:0.5rem 1.25rem;border-radius:7px;border:none;cursor:pointer">Find</button>
         </div>
 
-        <div id="search-engines" style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+        <div id="search-engines" style="display:flex; gap:0.5rem; margin-bottom:1rem;">
           <button class="engine-btn active" data-engine="pubmed">PubMed</button>
           <button class="engine-btn" data-engine="embase">Embase</button>
           <button class="engine-btn" data-engine="cochrane">Cochrane</button>
           <button class="engine-btn" data-engine="scholar">Scholar</button>
         </div>
         <style>
-          .engine-btn { font-size: 0.72rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; transition: all 0.2s; }
+          .engine-btn { font-size: 0.72rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; }
           .engine-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
         </style>
 
@@ -82,21 +83,22 @@
 
       <div style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid #e8e4df; padding-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem;">
         <div>
-          <button class="criteria-header" style="background:rgba(85, 107, 85, 0.08); color:#000;">Inclusion Criteria</button>
-          <input id="input-inclusion" type="text" placeholder="Add inclusion criteria..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
+          <button style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(85, 107, 85, 0.2); background:rgba(85, 107, 85, 0.05); color:#000; margin-bottom: 1rem; cursor:default;">Inclusion Criteria</button>
+          <input id="input-inclusion" type="text" placeholder="Add inclusion criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
           <div id="list-inclusion" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
         </div>
         <div>
-          <button class="criteria-header" style="background:rgba(128, 0, 0, 0.08); color:#000;">Exclusion Criteria</button>
-          <input id="input-exclusion" type="text" placeholder="Add exclusion criteria..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
+          <button style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(128, 0, 0, 0.2); background:rgba(128, 0, 0, 0.05); color:#000; margin-bottom: 1rem; cursor:default;">Exclusion Criteria</button>
+          <input id="input-exclusion" type="text" placeholder="Add exclusion criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
           <div id="list-exclusion" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
         </div>
       </div>
-      <style>.criteria-header { width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(0,0,0,0.1); margin-bottom: 1rem; cursor:default; }</style>
     </div>
   </div>
 
-  <div id="screening-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Screening active.</div></div>
+  <div id="screening-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Screening View Active. Articles: <span id="screening-count">0</span></div></div>
+  <div id="analysis-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Analysis View Active.</div></div>
+  <div id="export-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Export View Active.</div></div>
 </div>
 
 </body>
