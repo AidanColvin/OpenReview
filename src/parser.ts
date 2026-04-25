@@ -125,7 +125,7 @@ export async function parseDocx(file: File): Promise<Article[]> {
  */
 export async function parsePdf(file: File): Promise<Article[]> {
   const buf = await file.arrayBuffer();
-  const latin = new TextDecoder('latin1').decode(buf);
+  const latin = new TextDecoder('windows-1252').decode(buf);
 
   let title = '';
   const tm = latin.match(/\/Title\s*\(([^)]{1,300})\)/);
