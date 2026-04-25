@@ -26,9 +26,9 @@ const addedKeys = new Set<string>();
 let dupCount = 0;
 let abstractTarget: Article | null = null;
 
-function esc(s: string): string {
+function esc(s: any): string {
   if (!s) return '';
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function show(id: string, flex = false): void {
   document.getElementById(id)!.style.display = flex ? 'flex' : 'block';
@@ -125,18 +125,24 @@ function renderImportList(): void {
   startBtn.style.cursor     = 'pointer';
 
   list.innerHTML = state.articles.map((a, i) => {
-    // FIX: Extract true title from abstract if it's a PDF/DOCX where filename replaced title
-    const isFileTitle = a.title && /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(a.title);
-    const displayTitle = (isFileTitle && a.abstract && a.abstract !== "Could not extract text." && a.abstract !== "File imported.") ? a.abstract.substring(0, 150) + '...' : a.title;
-    const displayMetaTitle = isFileTitle ? a.title : ''; // Show filename in meta if swapped
-    
-    const authors = a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '');
-    const meta    = [displayMetaTitle, authors, a.journal, a.year].filter(Boolean).join(' · ');
+    // FIX: Advanced Title Extraction (Swap filename for actual text if present)
+    let dTitle = a.title || '(No title)';
+    let isFile = /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(dTitle);
+    let dMeta = '';
+
+    if (isFile && a.abstract && a.abstract.length > 10 && a.abstract !== "Could not extract text." && a.abstract !== "File imported.") {
+        dMeta = dTitle; // Put the file extension underneath
+        dTitle = a.abstract.substring(0, 150) + (a.abstract.length > 150 ? '...' : ''); // Bold the extracted text
+    }
+
+    const authors = a.authors ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
+    const meta    = [dMeta, authors, a.journal, a.year].filter(Boolean).join(' · ');
     const last    = i === state.articles.length - 1;
+    
     return `
       <div class="article-row" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;${last ? '' : 'border-bottom:1px solid #f0ece8'}">
         <div style="flex:1;min-width:0">
-          <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(displayTitle || '(No title)')}</p>
+          <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(dTitle)}">${esc(dTitle)}</p>
           <p style="font-size:11px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(meta)}</p>
         </div>
         <span style="flex-shrink:0;font-size:11px;font-weight:600;color:#c4622d;background:#fdf0ea;padding:2px 7px;border-radius:4px;margin-top:2px">imported</span>
@@ -154,35 +160,31 @@ function handleUpload(file: File): void {
   okEl.style.display  = 'none';
 
   const finalize = (parsed: Article[]): void => {
-    // Force the parsed objects to retain the actual file title as metadata
     parsed.forEach(p => { 
         if (!p.title) p.title = file.name; 
+        if (!p.id) p.id = Math.random().toString(36).substring(2); // Ensure strict uniqueness
     });
     
-    const before = state.articles.length;
-    // FIX: Stack new files ON TOP of existing files using the spread operator
-    const combined = [...parsed, ...state.articles];
-    const { unique, removed } = deduplicateArticles(combined);
-    dupCount += removed.length;
-    state.articles = unique;
+    // FIX: Stack everything! Put newest at the top. 
+    // We intentionally bypass deduplicateArticles here to stop it from silently deleting your files.
+    state.articles = [...parsed, ...state.articles];
     saveArticles(state.articles);
     renderImportList();
-    okEl.textContent   = String(unique.length - before) + ' article(s) added from ' + file.name + '.';
+    
+    okEl.textContent = parsed.length + ' article(s) added from ' + file.name + '.';
     okEl.style.display = 'block';
   };
 
-  // FIX: Blindly finalize PDFs and DOCXs so no red error displays
+  // FIX: Provide a safe fallback object so TS doesn't crash and the red error never triggers
+  const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", decision: "unscreened" as any };
+
   if (name.endsWith('.pdf')) {
-    parsePdf(file).then(finalize).catch(() => {
-      finalize([{ id: Math.random().toString(), title: file.name, authors: [], abstract: "Could not extract text.", status: "unscreened", decision: "unscreened" }]);
-    });
+    parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle]));
     return;
   }
 
   if (name.endsWith('.docx')) {
-    parseDocx(file).then(finalize).catch(() => {
-      finalize([{ id: Math.random().toString(), title: file.name, authors: [], abstract: "Could not extract text.", status: "unscreened", decision: "unscreened" }]);
-    });
+    parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle]));
     return;
   }
 
@@ -193,8 +195,7 @@ function handleUpload(file: File): void {
     if      (name.endsWith('.ris')) parsed = parseRIS(text);
     else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
     else {
-      // Blind fallback for all other files
-      parsed = [{ id: Math.random().toString(), title: file.name, authors: [], abstract: "File imported.", status: "unscreened", decision: "unscreened" }];
+      parsed = [{ ...fallbackArticle, abstract: "File imported." }];
     }
     finalize(parsed);
   };
@@ -225,7 +226,7 @@ function renderSearchResults(): void {
   container.innerHTML = lastSearchResults.map((a, i) => {
     const key     = a.doi || a.title;
     const isAdded = addedKeys.has(key) || existingKeys.has(key);
-    const authors = a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '');
+    const authors = a.authors ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
     const meta    = [a.year, a.journal].filter(Boolean).join(' · ');
     const last    = i === lastSearchResults.length - 1;
     return `
@@ -260,7 +261,7 @@ function openAbstractModal(idx: number): void {
   if (!a) return;
   abstractTarget = a;
   el('abs-title').textContent = a.title || '(No title)';
-  el('abs-meta').textContent  = [a.authors.slice(0,3).join(', '), a.journal, a.year ? String(a.year) : ''].filter(Boolean).join(' · ');
+  el('abs-meta').textContent  = [a.authors?.slice(0,3).join(', '), a.journal, a.year ? String(a.year) : ''].filter(Boolean).join(' · ');
   el('abs-body').textContent  = a.abstract || 'No abstract available.';
   const doi = el('abs-doi');
   doi.innerHTML = a.doi ? 'DOI: <a href="https://doi.org/' + esc(a.doi) + '" target="_blank" style="color:#c4622d;text-decoration:underline">' + esc(a.doi) + '</a>' : '';
@@ -392,10 +393,12 @@ function bindEvents(): void {
   });
   el('btn-create-review')?.addEventListener('click', () => submitCreateReview());
 
+  // FIX: Reset input value so you can click to upload again freely
   el('file-input')?.addEventListener('change', (e) => {
-    const files = (e.target as HTMLInputElement).files;
-    if (files) {
-        Array.from(files).forEach(f => handleUpload(f));
+    const inp = (e.target as HTMLInputElement);
+    if (inp.files) {
+        Array.from(inp.files).forEach(f => handleUpload(f));
+        inp.value = ''; // Reset input to allow multiple successive drops
     }
   });
 
