@@ -95,7 +95,7 @@ export async function parseDocx(file: File): Promise<Article[]> {
     }
     // Group by paragraphs
     const paragraphs: string[] = [];
-     // let para = '';
+     //  // let para = '';
     const parts = xml.split(/<w:p[ >]/);
     for (const part of parts) {
       const ts: string[] = [];
