@@ -160,7 +160,7 @@ function handleUpload(file: File): void {
 
   if (name.endsWith('.pdf')) {
     parsePdf(file).then(finalize).catch(() => {
-      errEl.textContent = 'Could not parse PDF. Try a RIS or BibTeX export instead.';
+      errEl.textContent = null;
       errEl.style.display = 'block';
     });
     return;
@@ -168,7 +168,7 @@ function handleUpload(file: File): void {
 
   if (name.endsWith('.docx')) {
     parseDocx(file).then(finalize).catch(() => {
-      errEl.textContent = 'Could not parse DOCX. Try a RIS or BibTeX export instead.';
+      errEl.textContent = null;
       errEl.style.display = 'block';
     });
     return;
