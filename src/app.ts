@@ -1,4 +1,4 @@
-import { Article, AppState, Decision, makeFilter, makeStats } from './models';
+import { Article, AppState, Decision, makeFilter, makeStats, makeArticle } from './models';
 import { loadArticles, saveArticles, clearArticles, loadFilters, saveFilters } from './storage';
 import { parseRIS, parseBibTeX, deduplicateArticles, parsePdf, parseDocx } from './parser';
 import { makeDecision, undoLastDecision, undoSession, getNextArticle, getPreviousArticle } from './screening';
@@ -12,40 +12,27 @@ const state: AppState = {
   snackbarFrame: null, snackbarTimer: null,
 };
 
-const MODAL_FIELDS = [
-  'input-review-title','input-review-topic',
-  'input-review-type','input-review-domain','input-review-description',
-];
-
+const MODAL_FIELDS = ['input-review-title','input-review-topic','input-review-type','input-review-domain','input-review-description'];
 let lastSearchResults: Article[] = [];
 const addedKeys = new Set<string>();
 let dupCount = 0;
 let abstractTarget: Article | null = null;
 
-function esc(s: any): string {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s: any): string { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 function show(id: string, flex = false): void { document.getElementById(id)!.style.display = flex ? 'flex' : 'block'; }
 function hide(id: string): void { document.getElementById(id)!.style.display = 'none'; }
 function el(id: string): HTMLElement { return document.getElementById(id)!; }
 
 export function boot(): void {
-  state.articles = loadArticles();
-  state.filters  = loadFilters();
-  bindEvents();
-  bindKeyboard();
-  startSplash();
+  state.articles = loadArticles(); state.filters = loadFilters();
+  bindEvents(); bindKeyboard(); startSplash();
 }
 
 function startSplash(): void {
-  const splash = el('splash-screen');
   setTimeout(() => {
-    splash.classList.add('fading');
+    el('splash-screen').classList.add('fading');
     setTimeout(() => {
-      hide('splash-screen');
-      show('main-app', true);
-      (el('main-app')).style.flexDirection = 'column';
+      hide('splash-screen'); show('main-app', true); el('main-app').style.flexDirection = 'column';
       if (state.articles.length) { showScreen('screening'); renderAll(); autoSelectFirst(); }
       else showCreateReviewModal();
     }, 400);
@@ -53,440 +40,182 @@ function startSplash(): void {
 }
 
 type Screen = 'import' | 'screening' | 'analysis' | 'export';
-
 function showScreen(s: Screen): void {
-  const screens: Screen[] = ['import','screening','analysis','export'];
-  for (const scr of screens) { document.getElementById(scr + '-screen')!.style.display = scr === s ? 'block' : 'none'; }
+  ['import','screening','analysis','export'].forEach(scr => { document.getElementById(scr + '-screen')!.style.display = scr === s ? 'block' : 'none'; });
   hide('home-screen'); hide('create-review-overlay');
-  const map: Record<string, Screen> = { 'nav-import':'import','nav-screening':'screening','nav-analysis':'analysis','nav-export':'export' };
-  for (const [btnId, screen] of Object.entries(map)) { el(btnId).classList.toggle('active', screen === s); }
+  Object.entries({'nav-import':'import','nav-screening':'screening','nav-analysis':'analysis','nav-export':'export'}).forEach(([btnId, screen]) => el(btnId).classList.toggle('active', screen === s));
   if (s === 'analysis') refreshAnalysis();
 }
 
 function showCreateReviewModal(): void {
-  show('home-screen');
-  el('create-review-overlay').style.display = 'flex';
+  show('home-screen'); el('create-review-overlay').style.display = 'flex';
   ['import','screening','analysis','export'].forEach(s => hide(s + '-screen'));
   setTimeout(() => (el('input-review-title') as HTMLInputElement).focus(), 80);
 }
 
 function submitCreateReview(): void {
-  const titleEl = el('input-review-title') as HTMLInputElement;
-  const title   = titleEl.value.trim();
-  const errEl   = el('modal-error');
-  if (!title) { errEl.style.display = 'block'; titleEl.focus(); return; }
-  errEl.style.display = 'none';
-  localStorage.setItem('openreview_review_title', title);
-  const typeVal   = (el('input-review-type')   as HTMLSelectElement).value;
-  const domainVal = (el('input-review-domain') as HTMLSelectElement).value;
+  const title = (el('input-review-title') as HTMLInputElement).value.trim();
+  if (!title) { el('modal-error').style.display = 'block'; el('input-review-title').focus(); return; }
+  el('modal-error').style.display = 'none'; localStorage.setItem('openreview_review_title', title);
   el('review-title-display').textContent = title;
-  el('review-meta-display').textContent  = [typeVal, domainVal].filter(Boolean).join(' · ');
-  hide('create-review-overlay'); hide('home-screen');
-  showScreen('import'); renderImportList();
+  el('review-meta-display').textContent  = [(el('input-review-type') as HTMLSelectElement).value, (el('input-review-domain') as HTMLSelectElement).value].filter(Boolean).join(' · ');
+  hide('create-review-overlay'); hide('home-screen'); showScreen('import'); renderImportList();
 }
 
 function renderImportList(): void {
-  const list     = el('import-article-list');
-  const emptyEl  = el('import-list-empty');
-  const startBtn = el('btn-start-screening') as HTMLButtonElement;
-  el('stat-articles').textContent   = String(state.articles.length);
-  el('stat-duplicates').textContent = String(dupCount);
+  const list = el('import-article-list'); const emptyEl = el('import-list-empty'); const startBtn = el('btn-start-screening') as HTMLButtonElement;
+  el('stat-articles').textContent = String(state.articles.length); el('stat-duplicates').textContent = String(dupCount);
 
   if (!state.articles.length) {
-    list.innerHTML = ''; list.appendChild(emptyEl);
-    emptyEl.style.display = 'block';
+    list.innerHTML = ''; list.appendChild(emptyEl); emptyEl.style.display = 'block';
     startBtn.disabled = true; startBtn.style.background = '#d0cbc4'; startBtn.style.color = '#9e9e9e'; startBtn.style.cursor = 'not-allowed';
     return;
   }
 
-  emptyEl.style.display = 'none';
-  startBtn.disabled = false; startBtn.style.background = '#1a1a1a'; startBtn.style.color = '#fff'; startBtn.style.cursor = 'pointer';
+  emptyEl.style.display = 'none'; startBtn.disabled = false; startBtn.style.background = '#1a1a1a'; startBtn.style.color = '#fff'; startBtn.style.cursor = 'pointer';
 
   try {
     list.innerHTML = state.articles.map((a, i) => {
-      // SAFE EXTRACTION: Prevents silent JS crashes when mapping titles
       let displayTitle = a.title ? String(a.title) : '(No title)';
       let displayMeta = a.journal ? String(a.journal) : '';
       const abstractText = a.abstract ? String(a.abstract) : '';
 
-      // If the title is just a filename (e.g. 03.pdf), swap it with the real text
       if (/\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(displayTitle)) {
           if (abstractText.length > 20 && !abstractText.includes("Could not extract")) {
-              displayMeta = displayTitle; // Move the filename to the gray subtext
-              displayTitle = abstractText.substring(0, 120) + '...'; // Bold the real text
+              displayMeta = displayTitle; displayTitle = abstractText.substring(0, 120) + '...'; 
           }
       }
 
       const authors = (a.authors && Array.isArray(a.authors) && a.authors.length > 0) ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
-      const meta    = [displayMeta, authors, a.year].filter(Boolean).join(' · ');
-      const last    = i === state.articles.length - 1;
-      
-      return `
-        <div class="article-row" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;${last ? '' : 'border-bottom:1px solid #f0ece8'}">
-          <div style="flex:1;min-width:0">
-            <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(displayTitle)}">${esc(displayTitle)}</p>
-            <p style="font-size:11px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(meta)}</p>
-          </div>
-          <span style="flex-shrink:0;font-size:11px;font-weight:600;color:#c4622d;background:#fdf0ea;padding:2px 7px;border-radius:4px;margin-top:2px">imported</span>
-          <button data-remove-import="${esc(a.id)}" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:#ccc;font-size:16px;line-height:1;padding:0 2px">&#x2715;</button>
-        </div>`;
+      const meta = [displayMeta, authors, a.year].filter(Boolean).join(' · ');
+      return `<div class="article-row" style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;${i === state.articles.length - 1 ? '' : 'border-bottom:1px solid #f0ece8'}"><div style="flex:1;min-width:0"><p style="font-size:13px;font-weight:600;color:#1a1a1a;margin:0 0 2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(displayTitle)}">${esc(displayTitle)}</p><p style="font-size:11px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(meta)}</p></div><span style="flex-shrink:0;font-size:11px;font-weight:600;color:#c4622d;background:#fdf0ea;padding:2px 7px;border-radius:4px;margin-top:2px">imported</span><button data-remove-import="${esc(a.id)}" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:#ccc;font-size:16px;line-height:1;padding:0 2px">&#x2715;</button></div>`;
     }).join('');
-  } catch (error) {
-    console.error("Rendering error:", error);
-  }
+  } catch (error) {}
 }
 
 function handleUpload(file: File): void {
-  const name   = file.name.toLowerCase();
-  const errEl  = el('import-error');
-  const okEl   = el('import-success');
-  if (errEl) errEl.style.display = 'none';
-  if (okEl) okEl.style.display  = 'none';
-
+  const name = file.name.toLowerCase();
+  if (el('import-error')) el('import-error').style.display = 'none';
+  
   const finalize = (parsed: Article[]): void => {
     parsed.forEach(p => { 
         if (!p.id) p.id = Math.random().toString(36).substring(2);
-        if (!p.title) p.title = file.name;
-        if (!p.journal) p.journal = file.name;
+        if (!p.title) p.title = file.name; if (!p.journal) p.journal = file.name;
     });
-    
-    // ENSURE STACKING: Add new files to the top of the list
-    state.articles = [...parsed, ...state.articles];
-    saveArticles(state.articles);
-    renderImportList();
-    
-    if (okEl) {
-      okEl.textContent = 'Imported ' + file.name;
-      okEl.style.display = 'block';
-    }
+    state.articles = [...parsed, ...state.articles]; saveArticles(state.articles); renderImportList();
+    if (el('import-success')) { el('import-success').textContent = 'Added ' + file.name; el('import-success').style.display = 'block'; }
   };
 
-  // SAFE FALLBACK: Passes strict TypeScript compilation
-  const fallbackArticle = { 
-    id: Math.random().toString(36).substring(2), 
-    title: file.name, 
-    authors: [], 
-    abstract: "Could not extract text.", 
-    journal: file.name,
-    year: null,
-    doi: '',
-    tags: [],
-    status: 'unscreened',
-    decision: 'unscreened' 
-  } as unknown as Article;
-
-  if (name.endsWith('.pdf')) {
-    parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle]));
-    return;
-  }
-  if (name.endsWith('.docx')) {
-    parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle]));
-    return;
-  }
+  const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", journal: file.name, year: null, doi: '', tags: [], status: 'unscreened', decision: 'unscreened' } as unknown as Article;
+  if (name.endsWith('.pdf')) { parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
+  if (name.endsWith('.docx')) { parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
 
   const reader = new FileReader();
-  reader.onload = (e: ProgressEvent<FileReader>): void => {
-    const text = e.target?.result as string;
-    let parsed: Article[] = [];
-    if      (name.endsWith('.ris')) parsed = parseRIS(text);
-    else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
-    else {
-      fallbackArticle.abstract = "File imported.";
-      parsed = [fallbackArticle];
-    }
-    finalize(parsed);
+  reader.onload = (e) => {
+    const text = e.target?.result as string; let p: Article[] = [];
+    if (name.endsWith('.ris')) p = parseRIS(text); else if (name.endsWith('.bib')) p = parseBibTeX(text); else { fallbackArticle.abstract = "File imported."; p = [fallbackArticle]; }
+    finalize(p);
   };
   reader.readAsText(file);
 }
 
 async function searchPapers(): Promise<void> {
-  const query = (el('crossref-input') as HTMLInputElement).value.trim();
-  if (!query) return;
+  const query = (el('crossref-input') as HTMLInputElement).value.trim(); if (!query) return;
   el('crossref-loading').style.display = 'block'; el('crossref-empty').style.display = 'none'; el('crossref-error').style.display = 'none'; el('crossref-results').innerHTML = '';
-  try {
-    lastSearchResults = await searchCrossref(query);
-    el('crossref-loading').style.display = 'none';
-    if (!lastSearchResults.length) { el('crossref-empty').style.display = 'block'; return; }
-    renderSearchResults();
-  } catch {
-    el('crossref-loading').style.display = 'none'; el('crossref-error').style.display = 'block';
-  }
+  try { lastSearchResults = await searchCrossref(query); el('crossref-loading').style.display = 'none'; if (!lastSearchResults.length) { el('crossref-empty').style.display = 'block'; return; } renderSearchResults(); } 
+  catch { el('crossref-loading').style.display = 'none'; el('crossref-error').style.display = 'block'; }
 }
 
 function renderSearchResults(): void {
-  const container = el('crossref-results');
-  const existingKeys = new Set(state.articles.map(a => a.doi || a.title));
+  const container = el('crossref-results'); const existingKeys = new Set(state.articles.map(a => a.doi || a.title));
   container.innerHTML = lastSearchResults.map((a, i) => {
     const key = a.doi || a.title; const isAdded = addedKeys.has(key) || existingKeys.has(key);
     const authors = a.authors ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
     const meta = [a.year, a.journal].filter(Boolean).join(' · ');
-    return `
-      <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;${i === lastSearchResults.length - 1 ? '' : 'border-bottom:1px solid #f0ece8'}">
-        <div style="flex:1;min-width:0">
-          <p class="sr-title" data-idx="${i}" style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.35;margin:0 0 2px;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="Click to read abstract">${esc(a.title || '(No title)')}</p>
-          <p style="font-size:12px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(authors)}</p>
-          <p style="font-size:11px;color:#b0a898;margin:2px 0 0">${esc(meta)}</p>
-        </div>
-        <button data-add-idx="${i}" data-add-key="${esc(key)}"
-          style="flex-shrink:0;font-size:13px;font-weight:600;padding:4px 10px;border-radius:6px;border:none;cursor:${isAdded ? 'default' : 'pointer'};${isAdded ? 'color:#16a34a;background:#f0fdf4' : 'color:#c4622d;background:#fdf0ea'}">
-          ${isAdded ? 'Added' : '+ add'}
-        </button>
-      </div>`;
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;${i === lastSearchResults.length - 1 ? '' : 'border-bottom:1px solid #f0ece8'}"><div style="flex:1;min-width:0"><p class="sr-title" data-idx="${i}" style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.35;margin:0 0 2px;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="Click to read abstract">${esc(a.title || '(No title)')}</p><p style="font-size:12px;color:#9e9e9e;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(authors)}</p><p style="font-size:11px;color:#b0a898;margin:2px 0 0">${esc(meta)}</p></div><button data-add-idx="${i}" data-add-key="${esc(key)}" style="flex-shrink:0;font-size:13px;font-weight:600;padding:4px 10px;border-radius:6px;border:none;cursor:${isAdded ? 'default' : 'pointer'};${isAdded ? 'color:#16a34a;background:#f0fdf4' : 'color:#c4622d;background:#fdf0ea'}">${isAdded ? 'Added' : '+ add'}</button></div>`;
   }).join('');
 }
 
 function addFromSearch(idx: number, key: string): void {
-  const a = lastSearchResults[idx]; if (!a) return;
-  addedKeys.add(key);
+  const a = lastSearchResults[idx]; if (!a) return; addedKeys.add(key);
   const { unique, removed } = deduplicateArticles([a, ...state.articles]);
-  dupCount += removed.length; state.articles = unique; saveArticles(state.articles);
-  renderImportList(); renderSearchResults();
+  dupCount += removed.length; state.articles = unique; saveArticles(state.articles); renderImportList(); renderSearchResults();
 }
 
 function openAbstractModal(idx: number): void {
-  const a = lastSearchResults[idx]; if (!a) return;
-  abstractTarget = a;
-  el('abs-title').textContent = a.title || '(No title)';
-  el('abs-meta').textContent  = [a.authors?.slice(0,3).join(', '), a.journal, a.year ? String(a.year) : ''].filter(Boolean).join(' · ');
-  el('abs-body').textContent  = a.abstract || 'No abstract available.';
-  const doi = el('abs-doi');
-  doi.innerHTML = a.doi ? 'DOI: <a href="https://doi.org/' + esc(a.doi) + '" target="_blank" style="color:#c4622d;text-decoration:underline">' + esc(a.doi) + '</a>' : '';
+  const a = lastSearchResults[idx]; if (!a) return; abstractTarget = a;
+  el('abs-title').textContent = a.title || '(No title)'; el('abs-meta').textContent = [a.authors?.slice(0,3).join(', '), a.journal, a.year ? String(a.year) : ''].filter(Boolean).join(' · '); el('abs-body').textContent = a.abstract || 'No abstract available.';
+  el('abs-doi').innerHTML = a.doi ? `DOI: <a href="https://doi.org/${esc(a.doi)}" target="_blank" style="color:#c4622d;text-decoration:underline">${esc(a.doi)}</a>` : '';
   const key = a.doi || a.title; const isAdded = addedKeys.has(key) || state.articles.some(x => (x.doi || x.title) === key);
-  const addBtn = el('btn-abstract-add') as HTMLButtonElement;
-  addBtn.textContent = isAdded ? 'Already Added' : '+ Add to Review'; addBtn.disabled = isAdded; addBtn.style.opacity = isAdded ? '0.5' : '1';
-  el('abstract-modal').style.display = 'flex';
+  const addBtn = el('btn-abstract-add') as HTMLButtonElement; addBtn.textContent = isAdded ? 'Already Added' : '+ Add to Review'; addBtn.disabled = isAdded; addBtn.style.opacity = isAdded ? '0.5' : '1'; el('abstract-modal').style.display = 'flex';
 }
 
-function removeFromImport(id: string): void {
-  state.articles = state.articles.filter(a => a.id !== id);
-  saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults();
-}
-
-function startScreening(): void {
-  if (!state.articles.length) return; showScreen('screening'); renderAll(); updateCriteriaStrip(); autoSelectFirst();
-}
-
-function autoSelectFirst(): void {
-  const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0];
-  if (first) selectArticle(first.id);
-}
-
-function updateCriteriaStrip(): void {
-  const inc = localStorage.getItem('openreview_inclusion') || '';
-  const strip = el('criteria-strip'); const box = el('screening-criteria-box');
-  if (inc.trim()) {
-    const txt = 'Inclusion criteria: ' + inc.trim().replace(/\n/g,' | ');
-    strip.textContent = txt; strip.style.display = 'block'; box.textContent = txt; box.style.display = 'block';
-  } else { strip.style.display = 'none'; box.style.display = 'none'; }
-}
-
-function selectArticle(id: string): void {
-  state.currentId = id; renderArticleList(state);
-  const a = state.articles.find(x => x.id === id); if (a) renderArticleDetail(a);
-}
-
-function decide(decision: Decision): void {
-  if (!state.currentId) return;
-  state.articles = makeDecision(state.currentId, decision, state.articles);
-  saveArticles(state.articles);
-  const updated = state.articles.find(a => a.id === state.currentId);
-  if (decision === 'exclude' && updated) showSnackbar(updated, state);
-  renderAll(); if (updated) renderArticleDetail(updated);
-  const next = getNextArticle(state.articles, state.currentId); if (next) selectArticle(next.id);
-}
-
-function navigate(dir: 'next' | 'previous'): void {
-  if (!state.currentId) return;
-  const a = dir === 'next' ? getNextArticle(state.articles, state.currentId) : getPreviousArticle(state.articles, state.currentId);
-  if (a) selectArticle(a.id);
-}
-
-function undoLast(): void {
-  clearSnackbar(state); const r = undoLastDecision(state.articles);
-  state.articles = r.articles; saveArticles(state.articles); renderAll();
-  if (r.reverted) selectArticle(r.reverted.id);
-}
-
-function undoSessionAll(): void {
-  if (!confirm('Revert all session decisions?')) return;
-  clearSnackbar(state); state.articles = undoSession(state.articles); saveArticles(state.articles); renderAll(); autoSelectFirst();
-}
-
+function removeFromImport(id: string): void { state.articles = state.articles.filter(a => a.id !== id); saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); }
+function startScreening(): void { if (!state.articles.length) return; showScreen('screening'); renderAll(); updateCriteriaStrip(); autoSelectFirst(); }
+function autoSelectFirst(): void { const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0]; if (first) selectArticle(first.id); }
+function updateCriteriaStrip(): void { const inc = localStorage.getItem('openreview_inclusion') || ''; const strip = el('criteria-strip'); const box = el('screening-criteria-box'); if (inc.trim()) { const txt = 'Inclusion criteria: ' + inc.trim().replace(/\n/g,' | '); strip.textContent = txt; strip.style.display = 'block'; box.textContent = txt; box.style.display = 'block'; } else { strip.style.display = 'none'; box.style.display = 'none'; } }
+function selectArticle(id: string): void { state.currentId = id; renderArticleList(state); const a = state.articles.find(x => x.id === id); if (a) renderArticleDetail(a); }
+function decide(decision: Decision): void { if (!state.currentId) return; state.articles = makeDecision(state.currentId, decision, state.articles); saveArticles(state.articles); const updated = state.articles.find(a => a.id === state.currentId); if (decision === 'exclude' && updated) showSnackbar(updated, state); renderAll(); if (updated) renderArticleDetail(updated); const next = getNextArticle(state.articles, state.currentId); if (next) selectArticle(next.id); }
+function navigate(dir: 'next'|'previous'): void { if (!state.currentId) return; const a = dir === 'next' ? getNextArticle(state.articles, state.currentId) : getPreviousArticle(state.articles, state.currentId); if (a) selectArticle(a.id); }
+function undoLast(): void { clearSnackbar(state); const r = undoLastDecision(state.articles); state.articles = r.articles; saveArticles(state.articles); renderAll(); if (r.reverted) selectArticle(r.reverted.id); }
+function undoSessionAll(): void { if (!confirm('Revert all session decisions?')) return; clearSnackbar(state); state.articles = undoSession(state.articles); saveArticles(state.articles); renderAll(); autoSelectFirst(); }
 function renderAll(): void { renderArticleList(state); renderStats(state.articles); }
-
-function refreshAnalysis(): void {
-  const s = makeStats(state.articles); const set = (id: string, v: number) => { const e = document.getElementById(id); if (e) e.textContent = String(v); };
-  set('a-total', s.total); set('a-included', s.included); set('a-excluded', s.excluded); set('a-maybe', s.maybe);
-  set('p-total', s.total); set('p-screened', s.total - s.unscreened); set('p-included', s.included);
-}
-
-function openModal(id: string): void  { el(id).style.display = 'flex'; }
+function refreshAnalysis(): void { const s = makeStats(state.articles); const set = (id: string, v: number) => { const e = document.getElementById(id); if (e) e.textContent = String(v); }; set('a-total', s.total); set('a-included', s.included); set('a-excluded', s.excluded); set('a-maybe', s.maybe); set('p-total', s.total); set('p-screened', s.total - s.unscreened); set('p-included', s.included); }
+function openModal(id: string): void { el(id).style.display = 'flex'; }
 function closeModal(id: string): void { hide(id); }
-
-export function openShortcutOverlay():  void { openModal('shortcut-overlay'); }
+export function openShortcutOverlay(): void { openModal('shortcut-overlay'); }
 export function closeShortcutOverlay(): void { closeModal('shortcut-overlay'); }
 
 function bindEvents(): void {
-  el('nav-import')?.addEventListener('click',    () => showScreen('import'));
-  el('nav-screening')?.addEventListener('click', () => { showScreen('screening'); renderAll(); });
-  el('nav-analysis')?.addEventListener('click',  () => showScreen('analysis'));
-  el('nav-export')?.addEventListener('click',    () => showScreen('export'));
-
-  MODAL_FIELDS.forEach((id, i) => {
-    const elem = document.getElementById(id); if (!elem) return;
-    elem.addEventListener('keydown', (ev: Event) => {
-      const ke = ev as KeyboardEvent; if (ke.key !== 'Enter') return;
-      if (elem.tagName === 'TEXTAREA') { if (!ke.shiftKey) { ke.preventDefault(); submitCreateReview(); } return; }
-      ke.preventDefault(); const next = MODAL_FIELDS[i + 1];
-      if (next) (document.getElementById(next) as HTMLElement)?.focus(); else submitCreateReview();
-    });
-  });
+  el('nav-import')?.addEventListener('click', () => showScreen('import')); el('nav-screening')?.addEventListener('click', () => { showScreen('screening'); renderAll(); }); el('nav-analysis')?.addEventListener('click', () => showScreen('analysis')); el('nav-export')?.addEventListener('click', () => showScreen('export'));
+  MODAL_FIELDS.forEach((id, i) => { const elem = document.getElementById(id); if (!elem) return; elem.addEventListener('keydown', (ev: Event) => { const ke = ev as KeyboardEvent; if (ke.key !== 'Enter') return; if (elem.tagName === 'TEXTAREA') { if (!ke.shiftKey) { ke.preventDefault(); submitCreateReview(); } return; } ke.preventDefault(); const next = MODAL_FIELDS[i + 1]; if (next) document.getElementById(next)?.focus(); else submitCreateReview(); }); });
   el('btn-create-review')?.addEventListener('click', () => submitCreateReview());
+  el('file-input')?.addEventListener('change', (e) => { const inp = e.target as HTMLInputElement; if (inp.files) { Array.from(inp.files).forEach(f => handleUpload(f)); inp.value = ''; } });
+  const dz = el('drop-zone'); dz?.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); }); dz?.addEventListener('dragleave', () => dz.classList.remove('drop-zone-hover')); dz?.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drop-zone-hover'); const files = (e as DragEvent).dataTransfer?.files; if (files) Array.from(files).forEach(f => handleUpload(f)); });
+  el('btn-crossref-search')?.addEventListener('click', () => { void searchPapers(); }); el('crossref-input')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') void searchPapers(); });
+  el('crossref-results')?.addEventListener('click', (e) => { const addBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-add-idx]'); const titleEl = (e.target as HTMLElement).closest<HTMLElement>('.sr-title'); if (addBtn && addBtn.textContent?.trim() !== 'Added') addFromSearch(parseInt(addBtn.dataset['addIdx']!), addBtn.dataset['addKey']!); else if (titleEl) openAbstractModal(parseInt(titleEl.dataset['idx']!)); });
+  el('btn-close-abstract')?.addEventListener('click', () => closeModal('abstract-modal')); el('btn-close-abstract-2')?.addEventListener('click', () => closeModal('abstract-modal')); el('abstract-modal')?.addEventListener('click', (e) => { if (e.target === el('abstract-modal')) closeModal('abstract-modal'); });
+  el('btn-abstract-add')?.addEventListener('click', () => { if (!abstractTarget) return; const key = abstractTarget.doi || abstractTarget.title; addedKeys.add(key); const { unique, removed } = deduplicateArticles([...state.articles, abstractTarget]); dupCount += removed.length; state.articles = unique; saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); closeModal('abstract-modal'); });
+  el('import-article-list')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-import]'); if (btn) removeFromImport(btn.dataset['removeImport']!); });
+  el('btn-start-screening')?.addEventListener('click', () => startScreening()); el('btn-manage-articles')?.addEventListener('click', () => { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }); el('btn-nav-prisma')?.addEventListener('click', () => showScreen('analysis'));
+  el('btn-inclusion-criteria')?.addEventListener('click', () => { (el('criteria-inclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_inclusion') || ''; (el('criteria-exclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_exclusion') || ''; openModal('inclusion-modal'); });
+  el('btn-close-inclusion')?.addEventListener('click', () => closeModal('inclusion-modal')); el('btn-save-criteria')?.addEventListener('click', () => { localStorage.setItem('openreview_inclusion', (el('criteria-inclusion') as HTMLTextAreaElement).value); localStorage.setItem('openreview_exclusion', (el('criteria-exclusion') as HTMLTextAreaElement).value); closeModal('inclusion-modal'); });
+  el('btn-review-team')?.addEventListener('click', () => openModal('team-modal')); el('btn-close-team')?.addEventListener('click', () => closeModal('team-modal'));
+  el('article-list')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('.article-btn'); if (btn?.dataset['id']) selectArticle(btn.dataset['id']); });
+  el('article-tags')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-tag]'); if (!btn || !state.currentId) return; state.articles = state.articles.map(a => a.id === state.currentId ? removeTag(a, btn.dataset['removeTag']!) : a); saveArticles(state.articles); const u = state.articles.find(a => a.id === state.currentId); if (u) renderArticleDetail(u); });
+  el('tag-input')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key !== 'Enter' || !state.currentId) return; const inp = e.target as HTMLInputElement; const tag = inp.value.trim(); if (!tag) return; state.articles = state.articles.map(a => a.id === state.currentId ? addTag(a, tag) : a); saveArticles(state.articles); inp.value = ''; const u = state.articles.find(a => a.id === state.currentId); if (u) renderArticleDetail(u); });
+  el('notes-input')?.addEventListener('blur', (e) => { if (!state.currentId) return; state.articles = state.articles.map(a => a.id === state.currentId ? updateNotes(a, (e.target as HTMLTextAreaElement).value) : a); saveArticles(state.articles); });
+  el('btn-include')?.addEventListener('click', () => decide('include')); el('btn-maybe')?.addEventListener('click', () => decide('maybe')); el('btn-exclude')?.addEventListener('click', () => decide('exclude')); el('btn-next')?.addEventListener('click', () => navigate('next')); el('btn-previous')?.addEventListener('click', () => navigate('previous')); el('btn-undo')?.addEventListener('click', () => undoLast()); el('btn-undo-session')?.addEventListener('click', () => undoSessionAll());
+  el('btn-shortcuts')?.addEventListener('click', () => openShortcutOverlay()); el('btn-close-overlay')?.addEventListener('click', () => closeShortcutOverlay()); el('btn-got-it')?.addEventListener('click', () => closeShortcutOverlay()); el('shortcut-overlay')?.addEventListener('click', (e) => { if (e.target === el('shortcut-overlay')) closeShortcutOverlay(); });
+  el('status-filter')?.addEventListener('change', (e) => { state.filters.status = (e.target as HTMLSelectElement).value; saveFilters(state.filters); renderArticleList(state); }); el('search-input')?.addEventListener('input', (e) => { state.filters.query = (e.target as HTMLInputElement).value; saveFilters(state.filters); renderArticleList(state); });
+  const doCSV = () => exportCSV(state.articles); const doRIS = () => exportRIS(state.articles, 'include'); const doJSON = () => exportJSON(state.articles);
+  el('btn-export-csv')?.addEventListener('click', doCSV); el('btn-export-ris')?.addEventListener('click', doRIS); el('btn-export-json')?.addEventListener('click', doJSON); el('btn-export-csv-2')?.addEventListener('click', doCSV); el('btn-export-ris-2')?.addEventListener('click', doRIS); el('btn-export-json-2')?.addEventListener('click', doJSON);
+  el('btn-clear')?.addEventListener('click', () => { if (!confirm('Delete all articles? This cannot be undone.')) return; clearArticles(); state.articles = []; state.currentId = null; showScreen('import'); renderImportList(); });
 
-  el('file-input')?.addEventListener('change', (e) => {
-    const inp = (e.target as HTMLInputElement);
-    if (inp.files && inp.files.length > 0) {
-        Array.from(inp.files).forEach(f => handleUpload(f));
-        inp.value = ''; 
-    }
-  });
-
-  const dz = el('drop-zone');
-  dz?.addEventListener('dragover',  (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); });
-  dz?.addEventListener('dragleave', ()  => dz.classList.remove('drop-zone-hover'));
-  dz?.addEventListener('drop',      (e) => {
-    e.preventDefault(); dz.classList.remove('drop-zone-hover');
-    const files = (e as DragEvent).dataTransfer?.files;
-    if (files && files.length > 0) {
-        Array.from(files).forEach(f => handleUpload(f));
-    }
-  });
-
-  el('btn-crossref-search')?.addEventListener('click', () => { void searchPapers(); });
-  el('crossref-input')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') void searchPapers(); });
-
-  el('crossref-results')?.addEventListener('click', (e) => {
-    const addBtn  = (e.target as HTMLElement).closest<HTMLElement>('[data-add-idx]');
-    const titleEl = (e.target as HTMLElement).closest<HTMLElement>('.sr-title');
-    if (addBtn && addBtn.textContent?.trim() !== 'Added') addFromSearch(parseInt(addBtn.dataset['addIdx']!), addBtn.dataset['addKey']!);
-    else if (titleEl) openAbstractModal(parseInt(titleEl.dataset['idx']!));
-  });
-
-  el('btn-close-abstract')?.addEventListener('click',   () => closeModal('abstract-modal'));
-  el('btn-close-abstract-2')?.addEventListener('click', () => closeModal('abstract-modal'));
-  el('abstract-modal')?.addEventListener('click', (e) => { if (e.target === el('abstract-modal')) closeModal('abstract-modal'); });
-  el('btn-abstract-add')?.addEventListener('click', () => {
-    if (!abstractTarget) return;
-    const key = abstractTarget.doi || abstractTarget.title; addedKeys.add(key);
-    const { unique, removed } = deduplicateArticles([...state.articles, abstractTarget]);
-    dupCount += removed.length; state.articles = unique; saveArticles(state.articles);
-    renderImportList(); if (lastSearchResults.length) renderSearchResults();
-    closeModal('abstract-modal');
-  });
-
-  el('import-article-list')?.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-import]');
-    if (btn) removeFromImport(btn.dataset['removeImport']!);
-  });
-
-  el('btn-start-screening')?.addEventListener('click', () => startScreening());
-  el('btn-manage-articles')?.addEventListener('click', () => {
-    if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst();
-  });
-  el('btn-nav-prisma')?.addEventListener('click', () => showScreen('analysis'));
-
-  el('btn-inclusion-criteria')?.addEventListener('click', () => {
-    (el('criteria-inclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_inclusion') || '';
-    (el('criteria-exclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_exclusion') || '';
-    openModal('inclusion-modal');
-  });
-  el('btn-close-inclusion')?.addEventListener('click', () => closeModal('inclusion-modal'));
-  el('btn-save-criteria')?.addEventListener('click', () => {
-    localStorage.setItem('openreview_inclusion', (el('criteria-inclusion') as HTMLTextAreaElement).value);
-    localStorage.setItem('openreview_exclusion', (el('criteria-exclusion') as HTMLTextAreaElement).value);
-    closeModal('inclusion-modal');
-  });
-
-  el('btn-review-team')?.addEventListener('click',   () => openModal('team-modal'));
-  el('btn-close-team')?.addEventListener('click',    () => closeModal('team-modal'));
-
-  el('article-list')?.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('.article-btn');
-    if (btn?.dataset['id']) selectArticle(btn.dataset['id']);
-  });
-
-  el('article-tags')?.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-tag]');
-    if (!btn || !state.currentId) return;
-    state.articles = state.articles.map(a => a.id === state.currentId ? removeTag(a, btn.dataset['removeTag']!) : a);
-    saveArticles(state.articles); const u = state.articles.find(a => a.id === state.currentId); if (u) renderArticleDetail(u);
-  });
-
-  el('tag-input')?.addEventListener('keydown', (e) => {
-    if ((e as KeyboardEvent).key !== 'Enter' || !state.currentId) return;
-    const inp = e.target as HTMLInputElement; const tag = inp.value.trim(); if (!tag) return;
-    state.articles = state.articles.map(a => a.id === state.currentId ? addTag(a, tag) : a);
-    saveArticles(state.articles); inp.value = ''; const u = state.articles.find(a => a.id === state.currentId); if (u) renderArticleDetail(u);
-  });
-
-  el('notes-input')?.addEventListener('blur', (e) => {
-    if (!state.currentId) return;
-    state.articles = state.articles.map(a => a.id === state.currentId ? updateNotes(a, (e.target as HTMLTextAreaElement).value) : a);
+  // -------------------------------------------------------------
+  // NEW LOGIC: Wire up the newly injected Include / Exclude boxes
+  // -------------------------------------------------------------
+  el('btn-batch-include')?.addEventListener('click', () => {
+    if (!state.articles.length) return;
+    state.articles = state.articles.map(a => ({ ...a, decision: 'include' }));
     saveArticles(state.articles);
+    renderImportList();
+    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Included.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
   });
 
-  el('btn-include')?.addEventListener('click', () => decide('include'));
-  el('btn-maybe')?.addEventListener('click',   () => decide('maybe'));
-  el('btn-exclude')?.addEventListener('click', () => decide('exclude'));
-  el('btn-next')?.addEventListener('click',     () => navigate('next'));
-  el('btn-previous')?.addEventListener('click', () => navigate('previous'));
-  el('btn-undo')?.addEventListener('click',         () => undoLast());
-  el('btn-undo-session')?.addEventListener('click', () => undoSessionAll());
-
-  el('btn-shortcuts')?.addEventListener('click',     () => openShortcutOverlay());
-  el('btn-close-overlay')?.addEventListener('click', () => closeShortcutOverlay());
-  el('btn-got-it')?.addEventListener('click',        () => closeShortcutOverlay());
-  el('shortcut-overlay')?.addEventListener('click',  (e) => { if (e.target === el('shortcut-overlay')) closeShortcutOverlay(); });
-
-  el('status-filter')?.addEventListener('change', (e) => {
-    state.filters.status = (e.target as HTMLSelectElement).value; saveFilters(state.filters); renderArticleList(state);
-  });
-  el('search-input')?.addEventListener('input', (e) => {
-    state.filters.query = (e.target as HTMLInputElement).value; saveFilters(state.filters); renderArticleList(state);
-  });
-
-  const doCSV  = () => exportCSV(state.articles);
-  const doRIS  = () => exportRIS(state.articles, 'include');
-  const doJSON = () => exportJSON(state.articles);
-  el('btn-export-csv')?.addEventListener('click',   doCSV);
-  el('btn-export-ris')?.addEventListener('click',   doRIS);
-  el('btn-export-json')?.addEventListener('click',  doJSON);
-  el('btn-export-csv-2')?.addEventListener('click',  doCSV);
-  el('btn-export-ris-2')?.addEventListener('click',  doRIS);
-  el('btn-export-json-2')?.addEventListener('click', doJSON);
-
-  el('btn-clear')?.addEventListener('click', () => {
-    if (!confirm('Delete all articles? This cannot be undone.')) return;
-    clearArticles(); state.articles = []; state.currentId = null;
-    showScreen('import'); renderImportList();
+  el('btn-batch-exclude')?.addEventListener('click', () => {
+    if (!state.articles.length) return;
+    state.articles = state.articles.map(a => ({ ...a, decision: 'exclude' }));
+    saveArticles(state.articles);
+    renderImportList();
+    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Excluded.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
   });
 }
 
 function bindKeyboard(): void {
   document.addEventListener('keydown', (e: KeyboardEvent): void => {
-    const active    = document.activeElement as HTMLElement;
-    const modalOpen = el('create-review-overlay').style.display !== 'none';
-    if (modalOpen) return;
+    const active = document.activeElement as HTMLElement; const modalOpen = el('create-review-overlay').style.display !== 'none'; if (modalOpen) return;
     if (['input','textarea','select'].includes(active.tagName.toLowerCase())) return;
-    switch (e.key) {
-      case 'i': case 'I':          decide('include');    break;
-      case 'e': case 'E':          decide('exclude');    break;
-      case 'm': case 'M':          decide('maybe');      break;
-      case 'j': case 'ArrowRight': navigate('next');     break;
-      case 'k': case 'ArrowLeft':  navigate('previous'); break;
-      case 'z': if (e.ctrlKey || e.metaKey) undoLast();  break;
-      case '?':      openShortcutOverlay();  break;
-      case 'Escape': closeShortcutOverlay(); break;
-    }
+    switch (e.key) { case 'i': case 'I': decide('include'); break; case 'e': case 'E': decide('exclude'); break; case 'm': case 'M': decide('maybe'); break; case 'j': case 'ArrowRight': navigate('next'); break; case 'k': case 'ArrowLeft': navigate('previous'); break; case 'z': if (e.ctrlKey || e.metaKey) undoLast(); break; case '?': openShortcutOverlay(); break; case 'Escape': closeShortcutOverlay(); break; }
   });
 }
