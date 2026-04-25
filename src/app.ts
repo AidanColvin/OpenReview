@@ -87,7 +87,7 @@ function renderImportList(): void {
       const abstractText = a.abstract ? String(a.abstract) : '';
 
       if (/\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(displayTitle)) {
-          if (abstractText.length > 20 && !abstractText.includes("Could not extract")) {
+          if (abstractText.length > 20 && !abstractText.includes("Could not extract") && !abstractText.includes("File imported")) {
               displayMeta = displayTitle; displayTitle = abstractText.substring(0, 120) + '...'; 
           }
       }
@@ -112,7 +112,12 @@ async function handleMultipleUploads(files: FileList | File[]): Promise<void> {
       if (name.endsWith('.pdf')) parsed = await parsePdf(file);
       else if (name.endsWith('.docx')) parsed = await parseDocx(file);
       else {
-        const text = await file.text();
+        // Wrap file reader in a promise so it strictly awaits the file text before moving on
+        const text = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsText(file);
+        });
         if (name.endsWith('.ris')) parsed = parseRIS(text);
         else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
         else parsed = [{ ...fallbackArticle, abstract: "File imported." } as unknown as Article];
@@ -149,7 +154,6 @@ function renderSearchResults(): void {
   }).join('');
 }
 
-// RESTORED FIX: DEEP CLONE FOR SEARCH ADDITION (Bypasses deduplicator bug so it actually adds!)
 function addFromSearch(idx: number, key: string): void {
   const a = lastSearchResults[idx]; if (!a) return;
   addedKeys.add(key);
@@ -190,8 +194,24 @@ function bindEvents(): void {
   MODAL_FIELDS.forEach((id, i) => { const elem = document.getElementById(id); if (!elem) return; elem.addEventListener('keydown', (ev: Event) => { const ke = ev as KeyboardEvent; if (ke.key !== 'Enter') return; if (elem.tagName === 'TEXTAREA') { if (!ke.shiftKey) { ke.preventDefault(); submitCreateReview(); } return; } ke.preventDefault(); const next = MODAL_FIELDS[i + 1]; if (next) document.getElementById(next)?.focus(); else submitCreateReview(); }); });
   el('btn-create-review')?.addEventListener('click', () => submitCreateReview());
   
-  el('file-input')?.addEventListener('change', (e) => { const inp = e.target as HTMLInputElement; if (inp.files && inp.files.length > 0) { void handleMultipleUploads(inp.files); inp.value = ''; } });
-  const dz = el('drop-zone'); dz?.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); }); dz?.addEventListener('dragleave', () => dz.classList.remove('drop-zone-hover')); dz?.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drop-zone-hover'); const files = (e as DragEvent).dataTransfer?.files; if (files && files.length > 0) void handleMultipleUploads(files); });
+  // FIX: Properly await the files BEFORE clearing the input to stop browser wiping the memory
+  el('file-input')?.addEventListener('change', async (e) => { 
+    const inp = e.target as HTMLInputElement; 
+    if (inp.files && inp.files.length > 0) { 
+        const fileArray = Array.from(inp.files);
+        await handleMultipleUploads(fileArray); 
+        inp.value = ''; 
+    } 
+  });
+  
+  const dz = el('drop-zone'); dz?.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); }); dz?.addEventListener('dragleave', () => dz.classList.remove('drop-zone-hover')); 
+  dz?.addEventListener('drop', async (e) => { 
+    e.preventDefault(); dz.classList.remove('drop-zone-hover'); 
+    const files = (e as DragEvent).dataTransfer?.files; 
+    if (files && files.length > 0) {
+        await handleMultipleUploads(Array.from(files));
+    } 
+  });
   
   el('btn-crossref-search')?.addEventListener('click', () => { void searchPapers(); }); el('crossref-input')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') void searchPapers(); });
   el('crossref-results')?.addEventListener('click', (e) => { const addBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-add-idx]'); const titleEl = (e.target as HTMLElement).closest<HTMLElement>('.sr-title'); if (addBtn && addBtn.textContent?.trim() !== 'Added') addFromSearch(parseInt(addBtn.dataset['addIdx']!), addBtn.dataset['addKey']!); else if (titleEl) openAbstractModal(parseInt(titleEl.dataset['idx']!)); });
