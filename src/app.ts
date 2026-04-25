@@ -193,8 +193,9 @@ async function handleUpload(file: File): Promise<void> {
     return p;
   });
 
-  // Prepend new articles so newest appears at top; no deduplication so nothing is lost
-  state.articles = [...parsed, ...state.articles];
+  // Always reload from localStorage before prepending so previous uploads are never lost
+  const existing = loadArticles();
+  state.articles = [...parsed, ...existing];
   saveArticles(state.articles);
   renderImportList();
 
