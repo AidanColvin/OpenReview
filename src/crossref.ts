@@ -1,9 +1,8 @@
 import { Article, makeArticle } from './models';
 export async function searchCrossref(query: string): Promise<Article[]> {
   try {
-    const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=15&fields=title,authors,venue,year,abstract`;
+    const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=10&fields=title,authors,venue,year,abstract`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error();
     const data = await res.json();
     return (data.data || []).map((item: any) => makeArticle({
       title: item.title || 'Untitled',
