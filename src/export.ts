@@ -38,9 +38,9 @@ export function exportRIS(articles: Article[], decision: string | null = null): 
 
   for (const a of filtered) {
     lines.push('TY  - JOUR');
-    if (a.title)    lines.push(`TI  - ${a.title}`);
+    if (a.title)    lines.push(`TI  - ${(a.title && /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(a.title) && a.abstract) ? a.abstract.substring(0, 120) + "..." : a.title}`);
     a.authors.forEach(au => lines.push(`AU  - ${au}`));
-    if (a.abstract) lines.push(`AB  - ${a.abstract}`);
+    if (a.abstract) lines.push(`AB  - ${(a.title && /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(a.title) && a.abstract) ? a.title : a.abstract}`);
     if (a.year)     lines.push(`PY  - ${a.year}`);
     if (a.journal)  lines.push(`JO  - ${a.journal}`);
     if (a.doi)      lines.push(`DO  - ${a.doi}`);
