@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V3</title>
+  <title>OpenReview V7</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module" crossorigin src="/OpenReview/assets/index-C4ud1BwQ.js"></script>
+  <script type="module" crossorigin src="/OpenReview/assets/index-DDZRTphj.js"></script>
   <link rel="stylesheet" crossorigin href="/OpenReview/assets/index-Di-pWJEw.css">
 </head>
 <body style="background:#faf9f7;min-height:100vh">
@@ -30,7 +30,17 @@
     <div class="flex items-center gap-2 flex-shrink-0">
       <img src="/OpenReview/openreview_icon.png" alt="OpenReview" style="width:22px;height:22px;border-radius:50%;object-fit:cover" />
       <span class="or-wordmark" style="font-size:1.1rem"><span>Open</span><span class="accent">Review</span></span>
+  
+      <div style="display:flex;gap:1.5rem;margin-top:2.5rem;width:100%;grid-column: 1 / -1;">
+        <button id="btn-batch-include" style="flex:1;background:#22c55e;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:1.1rem;padding:1.25rem;border-radius:12px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(34,197,94,0.2);">
+          Include All Articles
+        </button>
+        <button id="btn-batch-exclude" style="flex:1;background:#f87171;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:1.1rem;padding:1.25rem;border-radius:12px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(248,113,113,0.2);">
+          Exclude All Articles
+        </button>
+      </div>
     </div>
+  </div>
     <div class="flex-1"></div>
     <div class="flex items-center gap-1">
       <button id="nav-import"    class="nav-tab active">Import</button>
@@ -209,6 +219,15 @@
           Begin Screening
         </button>
 
+      </div>
+
+      <div style="display:flex;gap:1.5rem;margin-top:2.5rem;width:100%;grid-column: 1 / -1;">
+        <button id="btn-batch-include" style="flex:1;background:#22c55e;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:1.1rem;padding:1.25rem;border-radius:12px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(34,197,94,0.2);">
+          Include All Articles
+        </button>
+        <button id="btn-batch-exclude" style="flex:1;background:#f87171;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:1.1rem;padding:1.25rem;border-radius:12px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(248,113,113,0.2);">
+          Exclude All Articles
+        </button>
       </div>
     </div>
   </div>
