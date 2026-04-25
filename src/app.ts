@@ -129,7 +129,8 @@ function renderImportList(): void {
     let isFile = /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(dTitle);
     let dMeta = '';
 
-    if (isFile && a.abstract && a.abstract.length > 10 && a.abstract !== "Could not extract text." && a.abstract !== "File imported.") {
+    // Swap filename for abstract if it's a raw file
+    if (isFile && a.abstract && a.abstract.length > 10 && !a.abstract.includes("Could not extract text")) {
         dMeta = dTitle; 
         dTitle = a.abstract.substring(0, 150) + (a.abstract.length > 150 ? '...' : ''); 
     }
@@ -164,6 +165,7 @@ function handleUpload(file: File): void {
         if (!p.id) p.id = Math.random().toString(36).substring(2);
     });
     
+    // STACK FILES! Bypass the deduplicator for uploads so nothing deletes silently.
     state.articles = [...parsed, ...state.articles];
     saveArticles(state.articles);
     renderImportList();
@@ -172,14 +174,18 @@ function handleUpload(file: File): void {
     okEl.style.display = 'block';
   };
 
-  // FIX: Force TypeScript to accept the fallback object by casting as "any"
+  // ULTIMATE TYPESCRIPT OVERRIDE: Force compiler to accept the fallback object blindly
   const fallbackArticle = { 
     id: Math.random().toString(36).substring(2), 
     title: file.name, 
     authors: [], 
     abstract: "Could not extract text.", 
-    decision: "unscreened" 
-  } as any;
+    decision: "unscreened",
+    year: null,
+    journal: file.name,
+    doi: '',
+    tags: []
+  } as unknown as Article;
 
   if (name.endsWith('.pdf')) {
     parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle]));
@@ -198,7 +204,7 @@ function handleUpload(file: File): void {
     if      (name.endsWith('.ris')) parsed = parseRIS(text);
     else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
     else {
-      parsed = [{ ...fallbackArticle, abstract: "File imported." } as any];
+      parsed = [{ ...fallbackArticle, abstract: "File imported." } as unknown as Article];
     }
     finalize(parsed);
   };

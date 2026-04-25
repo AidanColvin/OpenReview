@@ -275,8 +275,8 @@ export function deduplicateArticles(articles: Article[]): DedupeResult {
   const unique: Article[]  = [];
   const removed: string[]  = [];
   for (const a of articles) {
-    const doi   = a.doi.trim().toLowerCase();
-    const title = a.title.trim().toLowerCase();
+    const doi   = (a.doi || "").trim().toLowerCase();
+    const title = (a.title || "").trim().toLowerCase();
     if (doi   && seenDois.has(doi))     { removed.push(a.doi);   continue; }
     if (title && seenTitles.has(title)) { removed.push(a.title); continue; }
     if (doi)   seenDois.add(doi);
