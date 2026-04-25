@@ -125,14 +125,13 @@ function renderImportList(): void {
   startBtn.style.cursor     = 'pointer';
 
   list.innerHTML = state.articles.map((a, i) => {
-    // FIX: Advanced Title Extraction (Swap filename for actual text if present)
     let dTitle = a.title || '(No title)';
     let isFile = /\.(pdf|docx?|zip|rar|png|jpg|csv|xlsx?)$/i.test(dTitle);
     let dMeta = '';
 
     if (isFile && a.abstract && a.abstract.length > 10 && a.abstract !== "Could not extract text." && a.abstract !== "File imported.") {
-        dMeta = dTitle; // Put the file extension underneath
-        dTitle = a.abstract.substring(0, 150) + (a.abstract.length > 150 ? '...' : ''); // Bold the extracted text
+        dMeta = dTitle; 
+        dTitle = a.abstract.substring(0, 150) + (a.abstract.length > 150 ? '...' : ''); 
     }
 
     const authors = a.authors ? (a.authors.slice(0,2).join(', ') + (a.authors.length > 2 ? ' et al.' : '')) : '';
@@ -162,11 +161,9 @@ function handleUpload(file: File): void {
   const finalize = (parsed: Article[]): void => {
     parsed.forEach(p => { 
         if (!p.title) p.title = file.name; 
-        if (!p.id) p.id = Math.random().toString(36).substring(2); // Ensure strict uniqueness
+        if (!p.id) p.id = Math.random().toString(36).substring(2);
     });
     
-    // FIX: Stack everything! Put newest at the top. 
-    // We intentionally bypass deduplicateArticles here to stop it from silently deleting your files.
     state.articles = [...parsed, ...state.articles];
     saveArticles(state.articles);
     renderImportList();
@@ -175,8 +172,14 @@ function handleUpload(file: File): void {
     okEl.style.display = 'block';
   };
 
-  // FIX: Provide a safe fallback object so TS doesn't crash and the red error never triggers
-  const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", decision: "unscreened" as any };
+  // FIX: Force TypeScript to accept the fallback object by casting as "any"
+  const fallbackArticle = { 
+    id: Math.random().toString(36).substring(2), 
+    title: file.name, 
+    authors: [], 
+    abstract: "Could not extract text.", 
+    decision: "unscreened" 
+  } as any;
 
   if (name.endsWith('.pdf')) {
     parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle]));
@@ -195,7 +198,7 @@ function handleUpload(file: File): void {
     if      (name.endsWith('.ris')) parsed = parseRIS(text);
     else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
     else {
-      parsed = [{ ...fallbackArticle, abstract: "File imported." }];
+      parsed = [{ ...fallbackArticle, abstract: "File imported." } as any];
     }
     finalize(parsed);
   };
@@ -393,12 +396,11 @@ function bindEvents(): void {
   });
   el('btn-create-review')?.addEventListener('click', () => submitCreateReview());
 
-  // FIX: Reset input value so you can click to upload again freely
   el('file-input')?.addEventListener('change', (e) => {
     const inp = (e.target as HTMLInputElement);
     if (inp.files) {
         Array.from(inp.files).forEach(f => handleUpload(f));
-        inp.value = ''; // Reset input to allow multiple successive drops
+        inp.value = ''; 
     }
   });
 
