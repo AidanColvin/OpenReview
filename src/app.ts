@@ -7,11 +7,7 @@ import { exportCSV, exportRIS, exportJSON } from './export';
 import { searchCrossref } from './crossref';
 import { renderArticleList, renderArticleDetail, renderStats, showSnackbar, clearSnackbar } from './ui';
 
-const state: AppState = {
-  articles: [], currentId: null, filters: makeFilter(),
-  snackbarFrame: null, snackbarTimer: null,
-};
-
+const state: AppState = { articles: [], currentId: null, filters: makeFilter(), snackbarFrame: null, snackbarTimer: null };
 const MODAL_FIELDS = ['input-review-title','input-review-topic','input-review-type','input-review-domain','input-review-description'];
 let lastSearchResults: Article[] = [];
 const addedKeys = new Set<string>();
@@ -25,16 +21,14 @@ function el(id: string): HTMLElement { return document.getElementById(id)!; }
 
 export function boot(): void {
   state.articles = loadArticles(); state.filters = loadFilters();
-  bindEvents(); bindKeyboard(); startSplash();
+  bindEvents(); bindKeyboard(); startSplash(); renderCriteriaUI();
 }
 
 function startSplash(): void {
   setTimeout(() => {
     el('splash-screen').classList.add('fading');
-    setTimeout(() => {
-      hide('splash-screen'); show('main-app', true); el('main-app').style.flexDirection = 'column';
-      if (state.articles.length) { showScreen('screening'); renderAll(); autoSelectFirst(); }
-      else showCreateReviewModal();
+    setTimeout(() => { hide('splash-screen'); show('main-app', true); el('main-app').style.flexDirection = 'column';
+      if (state.articles.length) { showScreen('screening'); renderAll(); autoSelectFirst(); } else showCreateReviewModal();
     }, 400);
   }, 1000);
 }
@@ -58,8 +52,29 @@ function submitCreateReview(): void {
   if (!title) { el('modal-error').style.display = 'block'; el('input-review-title').focus(); return; }
   el('modal-error').style.display = 'none'; localStorage.setItem('openreview_review_title', title);
   el('review-title-display').textContent = title;
-  el('review-meta-display').textContent  = [(el('input-review-type') as HTMLSelectElement).value, (el('input-review-domain') as HTMLSelectElement).value].filter(Boolean).join(' · ');
+  el('review-meta-display').textContent = [(el('input-review-type') as HTMLSelectElement).value, (el('input-review-domain') as HTMLSelectElement).value].filter(Boolean).join(' · ');
   hide('create-review-overlay'); hide('home-screen'); showScreen('import'); renderImportList();
+}
+
+// -------------------------------------------------------------
+// CRITERIA LOGIC (Handles saving via Enter/Tab & rendering lists)
+// -------------------------------------------------------------
+function renderCriteriaUI() {
+  const inc = localStorage.getItem('openreview_inclusion') || '';
+  const exc = localStorage.getItem('openreview_exclusion') || '';
+  
+  const incArr = inc.split('\n').map(s => s.trim()).filter(Boolean);
+  const excArr = exc.split('\n').map(s => s.trim()).filter(Boolean);
+
+  const incList = el('list-inclusion');
+  if (incList) {
+    incList.innerHTML = incArr.map(c => `<div style="background:#fdf0ea; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #f0c9af;">${esc(c)}</div>`).join('');
+  }
+  
+  const excList = el('list-exclusion');
+  if (excList) {
+    excList.innerHTML = excArr.map(c => `<div style="background:#fef2f2; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #fecaca;">${esc(c)}</div>`).join('');
+  }
 }
 
 function renderImportList(): void {
@@ -96,16 +111,11 @@ function renderImportList(): void {
 function handleUpload(file: File): void {
   const name = file.name.toLowerCase();
   if (el('import-error')) el('import-error').style.display = 'none';
-  
   const finalize = (parsed: Article[]): void => {
-    parsed.forEach(p => { 
-        if (!p.id) p.id = Math.random().toString(36).substring(2);
-        if (!p.title) p.title = file.name; if (!p.journal) p.journal = file.name;
-    });
+    parsed.forEach(p => { if (!p.id) p.id = Math.random().toString(36).substring(2); if (!p.title) p.title = file.name; if (!p.journal) p.journal = file.name; });
     state.articles = [...parsed, ...state.articles]; saveArticles(state.articles); renderImportList();
     if (el('import-success')) { el('import-success').textContent = 'Added ' + file.name; el('import-success').style.display = 'block'; }
   };
-
   const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", journal: file.name, year: null, doi: '', tags: [], status: 'unscreened', decision: 'unscreened' } as unknown as Article;
   if (name.endsWith('.pdf')) { parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
   if (name.endsWith('.docx')) { parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
@@ -115,8 +125,7 @@ function handleUpload(file: File): void {
     const text = e.target?.result as string; let p: Article[] = [];
     if (name.endsWith('.ris')) p = parseRIS(text); else if (name.endsWith('.bib')) p = parseBibTeX(text); else { fallbackArticle.abstract = "File imported."; p = [fallbackArticle]; }
     finalize(p);
-  };
-  reader.readAsText(file);
+  }; reader.readAsText(file);
 }
 
 async function searchPapers(): Promise<void> {
@@ -151,9 +160,9 @@ function openAbstractModal(idx: number): void {
 }
 
 function removeFromImport(id: string): void { state.articles = state.articles.filter(a => a.id !== id); saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); }
-function startScreening(): void { if (!state.articles.length) return; showScreen('screening'); renderAll(); updateCriteriaStrip(); autoSelectFirst(); }
+function startScreening(): void { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }
 function autoSelectFirst(): void { const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0]; if (first) selectArticle(first.id); }
-function updateCriteriaStrip(): void { const inc = localStorage.getItem('openreview_inclusion') || ''; const strip = el('criteria-strip'); const box = el('screening-criteria-box'); if (inc.trim()) { const txt = 'Inclusion criteria: ' + inc.trim().replace(/\n/g,' | '); strip.textContent = txt; strip.style.display = 'block'; box.textContent = txt; box.style.display = 'block'; } else { strip.style.display = 'none'; box.style.display = 'none'; } }
+
 function selectArticle(id: string): void { state.currentId = id; renderArticleList(state); const a = state.articles.find(x => x.id === id); if (a) renderArticleDetail(a); }
 function decide(decision: Decision): void { if (!state.currentId) return; state.articles = makeDecision(state.currentId, decision, state.articles); saveArticles(state.articles); const updated = state.articles.find(a => a.id === state.currentId); if (decision === 'exclude' && updated) showSnackbar(updated, state); renderAll(); if (updated) renderArticleDetail(updated); const next = getNextArticle(state.articles, state.currentId); if (next) selectArticle(next.id); }
 function navigate(dir: 'next'|'previous'): void { if (!state.currentId) return; const a = dir === 'next' ? getNextArticle(state.articles, state.currentId) : getPreviousArticle(state.articles, state.currentId); if (a) selectArticle(a.id); }
@@ -178,8 +187,61 @@ function bindEvents(): void {
   el('btn-abstract-add')?.addEventListener('click', () => { if (!abstractTarget) return; const key = abstractTarget.doi || abstractTarget.title; addedKeys.add(key); const { unique, removed } = deduplicateArticles([...state.articles, abstractTarget]); dupCount += removed.length; state.articles = unique; saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); closeModal('abstract-modal'); });
   el('import-article-list')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-import]'); if (btn) removeFromImport(btn.dataset['removeImport']!); });
   el('btn-start-screening')?.addEventListener('click', () => startScreening()); el('btn-manage-articles')?.addEventListener('click', () => { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }); el('btn-nav-prisma')?.addEventListener('click', () => showScreen('analysis'));
+
+  // -------------------------------------------------------------
+  // CRITERIA INPUT LOGIC
+  // -------------------------------------------------------------
+  el('input-inclusion')?.addEventListener('keydown', (e) => {
+    const ke = e as KeyboardEvent;
+    if (ke.key === 'Enter' || ke.key === 'Tab') {
+      const val = (e.target as HTMLInputElement).value.trim();
+      if (val) {
+        const current = localStorage.getItem('openreview_inclusion') || '';
+        const arr = current.split('\n').map(s => s.trim()).filter(Boolean);
+        arr.unshift(val); // Put newest at the top
+        localStorage.setItem('openreview_inclusion', arr.join('\n'));
+        (e.target as HTMLInputElement).value = '';
+        renderCriteriaUI();
+      }
+      if (ke.key === 'Enter') ke.preventDefault(); 
+    }
+  });
+
+  el('input-exclusion')?.addEventListener('keydown', (e) => {
+    const ke = e as KeyboardEvent;
+    if (ke.key === 'Enter' || ke.key === 'Tab') {
+      const val = (e.target as HTMLInputElement).value.trim();
+      if (val) {
+        const current = localStorage.getItem('openreview_exclusion') || '';
+        const arr = current.split('\n').map(s => s.trim()).filter(Boolean);
+        arr.unshift(val); // Put newest at the top
+        localStorage.setItem('openreview_exclusion', arr.join('\n'));
+        (e.target as HTMLInputElement).value = '';
+        renderCriteriaUI();
+      }
+      if (ke.key === 'Enter') ke.preventDefault();
+    }
+  });
+
+  // -------------------------------------------------------------
+  // BATCH INCLUDE / EXCLUDE LOGIC
+  // -------------------------------------------------------------
+  el('btn-batch-include')?.addEventListener('click', () => {
+    if (!state.articles.length) return;
+    state.articles = state.articles.map(a => ({ ...a, decision: 'include' }));
+    saveArticles(state.articles); renderImportList();
+    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Included.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
+  });
+
+  el('btn-batch-exclude')?.addEventListener('click', () => {
+    if (!state.articles.length) return;
+    state.articles = state.articles.map(a => ({ ...a, decision: 'exclude' }));
+    saveArticles(state.articles); renderImportList();
+    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Excluded.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
+  });
+
   el('btn-inclusion-criteria')?.addEventListener('click', () => { (el('criteria-inclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_inclusion') || ''; (el('criteria-exclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_exclusion') || ''; openModal('inclusion-modal'); });
-  el('btn-close-inclusion')?.addEventListener('click', () => closeModal('inclusion-modal')); el('btn-save-criteria')?.addEventListener('click', () => { localStorage.setItem('openreview_inclusion', (el('criteria-inclusion') as HTMLTextAreaElement).value); localStorage.setItem('openreview_exclusion', (el('criteria-exclusion') as HTMLTextAreaElement).value); closeModal('inclusion-modal'); });
+  el('btn-close-inclusion')?.addEventListener('click', () => closeModal('inclusion-modal')); el('btn-save-criteria')?.addEventListener('click', () => { localStorage.setItem('openreview_inclusion', (el('criteria-inclusion') as HTMLTextAreaElement).value); localStorage.setItem('openreview_exclusion', (el('criteria-exclusion') as HTMLTextAreaElement).value); closeModal('inclusion-modal'); renderCriteriaUI(); });
   el('btn-review-team')?.addEventListener('click', () => openModal('team-modal')); el('btn-close-team')?.addEventListener('click', () => closeModal('team-modal'));
   el('article-list')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('.article-btn'); if (btn?.dataset['id']) selectArticle(btn.dataset['id']); });
   el('article-tags')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-tag]'); if (!btn || !state.currentId) return; state.articles = state.articles.map(a => a.id === state.currentId ? removeTag(a, btn.dataset['removeTag']!) : a); saveArticles(state.articles); const u = state.articles.find(a => a.id === state.currentId); if (u) renderArticleDetail(u); });
@@ -191,25 +253,6 @@ function bindEvents(): void {
   const doCSV = () => exportCSV(state.articles); const doRIS = () => exportRIS(state.articles, 'include'); const doJSON = () => exportJSON(state.articles);
   el('btn-export-csv')?.addEventListener('click', doCSV); el('btn-export-ris')?.addEventListener('click', doRIS); el('btn-export-json')?.addEventListener('click', doJSON); el('btn-export-csv-2')?.addEventListener('click', doCSV); el('btn-export-ris-2')?.addEventListener('click', doRIS); el('btn-export-json-2')?.addEventListener('click', doJSON);
   el('btn-clear')?.addEventListener('click', () => { if (!confirm('Delete all articles? This cannot be undone.')) return; clearArticles(); state.articles = []; state.currentId = null; showScreen('import'); renderImportList(); });
-
-  // -------------------------------------------------------------
-  // NEW LOGIC: Wire up the newly injected Include / Exclude boxes
-  // -------------------------------------------------------------
-  el('btn-batch-include')?.addEventListener('click', () => {
-    if (!state.articles.length) return;
-    state.articles = state.articles.map(a => ({ ...a, decision: 'include' }));
-    saveArticles(state.articles);
-    renderImportList();
-    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Included.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
-  });
-
-  el('btn-batch-exclude')?.addEventListener('click', () => {
-    if (!state.articles.length) return;
-    state.articles = state.articles.map(a => ({ ...a, decision: 'exclude' }));
-    saveArticles(state.articles);
-    renderImportList();
-    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Excluded.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
-  });
 }
 
 function bindKeyboard(): void {
