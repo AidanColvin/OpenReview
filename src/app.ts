@@ -56,25 +56,16 @@ function submitCreateReview(): void {
   hide('create-review-overlay'); hide('home-screen'); showScreen('import'); renderImportList();
 }
 
-// -------------------------------------------------------------
-// CRITERIA LOGIC (Handles saving via Enter/Tab & rendering lists)
-// -------------------------------------------------------------
 function renderCriteriaUI() {
   const inc = localStorage.getItem('openreview_inclusion') || '';
   const exc = localStorage.getItem('openreview_exclusion') || '';
-  
   const incArr = inc.split('\n').map(s => s.trim()).filter(Boolean);
   const excArr = exc.split('\n').map(s => s.trim()).filter(Boolean);
 
   const incList = el('list-inclusion');
-  if (incList) {
-    incList.innerHTML = incArr.map(c => `<div style="background:#fdf0ea; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #f0c9af;">${esc(c)}</div>`).join('');
-  }
-  
+  if (incList) incList.innerHTML = incArr.map(c => `<div style="background:#fdf0ea; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #f0c9af;">${esc(c)}</div>`).join('');
   const excList = el('list-exclusion');
-  if (excList) {
-    excList.innerHTML = excArr.map(c => `<div style="background:#fef2f2; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #fecaca;">${esc(c)}</div>`).join('');
-  }
+  if (excList) excList.innerHTML = excArr.map(c => `<div style="background:#fef2f2; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#6b6b6b; border:1px solid #fecaca;">${esc(c)}</div>`).join('');
 }
 
 function renderImportList(): void {
@@ -108,24 +99,38 @@ function renderImportList(): void {
   } catch (error) {}
 }
 
-function handleUpload(file: File): void {
-  const name = file.name.toLowerCase();
-  if (el('import-error')) el('import-error').style.display = 'none';
-  const finalize = (parsed: Article[]): void => {
-    parsed.forEach(p => { if (!p.id) p.id = Math.random().toString(36).substring(2); if (!p.title) p.title = file.name; if (!p.journal) p.journal = file.name; });
-    state.articles = [...parsed, ...state.articles]; saveArticles(state.articles); renderImportList();
-    if (el('import-success')) { el('import-success').textContent = 'Added ' + file.name; el('import-success').style.display = 'block'; }
-  };
-  const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", journal: file.name, year: null, doi: '', tags: [], status: 'unscreened', decision: 'unscreened' } as unknown as Article;
-  if (name.endsWith('.pdf')) { parsePdf(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
-  if (name.endsWith('.docx')) { parseDocx(file).then(finalize).catch(() => finalize([fallbackArticle])); return; }
+// RESTORED FIX: Sequential multiple uploads guarantee NO DROPPED FILES
+async function handleMultipleUploads(files: FileList | File[]): Promise<void> {
+  const errEl  = el('import-error'); const okEl = el('import-success');
+  if (errEl) errEl.style.display = 'none'; if (okEl) okEl.style.display = 'none';
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const text = e.target?.result as string; let p: Article[] = [];
-    if (name.endsWith('.ris')) p = parseRIS(text); else if (name.endsWith('.bib')) p = parseBibTeX(text); else { fallbackArticle.abstract = "File imported."; p = [fallbackArticle]; }
-    finalize(p);
-  }; reader.readAsText(file);
+  const allParsed: Article[] = [];
+  for (const file of Array.from(files)) {
+    const name = file.name.toLowerCase();
+    let parsed: Article[] = [];
+    const fallbackArticle = { id: Math.random().toString(36).substring(2), title: file.name, authors: [], abstract: "Could not extract text.", journal: file.name, decision: "unscreened" } as unknown as Article;
+    try {
+      if (name.endsWith('.pdf')) parsed = await parsePdf(file);
+      else if (name.endsWith('.docx')) parsed = await parseDocx(file);
+      else {
+        const text = await file.text();
+        if (name.endsWith('.ris')) parsed = parseRIS(text);
+        else if (name.endsWith('.bib')) parsed = parseBibTeX(text);
+        else parsed = [{ ...fallbackArticle, abstract: "File imported." } as unknown as Article];
+      }
+    } catch (e) { parsed = [fallbackArticle]; }
+
+    parsed.forEach(p => { 
+      if (!p.id) p.id = Math.random().toString(36).substring(2);
+      if (!p.title) p.title = file.name;
+      if (!p.journal) p.journal = file.name;
+    });
+    allParsed.push(...parsed);
+  }
+
+  state.articles = [...allParsed, ...state.articles];
+  saveArticles(state.articles); renderImportList();
+  if (okEl) { okEl.textContent = allParsed.length + ' article(s) added successfully.'; okEl.style.display = 'block'; }
 }
 
 async function searchPapers(): Promise<void> {
@@ -145,10 +150,16 @@ function renderSearchResults(): void {
   }).join('');
 }
 
+// RESTORED FIX: Deep Clone prevents deduplication bug, allowing infinite Google Scholar adds
 function addFromSearch(idx: number, key: string): void {
-  const a = lastSearchResults[idx]; if (!a) return; addedKeys.add(key);
-  const { unique, removed } = deduplicateArticles([a, ...state.articles]);
-  dupCount += removed.length; state.articles = unique; saveArticles(state.articles); renderImportList(); renderSearchResults();
+  const a = lastSearchResults[idx]; if (!a) return;
+  addedKeys.add(key);
+  const newArt = JSON.parse(JSON.stringify(a));
+  newArt.id = Math.random().toString(36).substring(2);
+  newArt.decision = 'unscreened';
+  state.articles = [newArt, ...state.articles]; // Add straight to state (bypasses silent deduplicator drops)
+  saveArticles(state.articles); 
+  renderImportList(); renderSearchResults();
 }
 
 function openAbstractModal(idx: number): void {
@@ -162,7 +173,6 @@ function openAbstractModal(idx: number): void {
 function removeFromImport(id: string): void { state.articles = state.articles.filter(a => a.id !== id); saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); }
 function startScreening(): void { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }
 function autoSelectFirst(): void { const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0]; if (first) selectArticle(first.id); }
-
 function selectArticle(id: string): void { state.currentId = id; renderArticleList(state); const a = state.articles.find(x => x.id === id); if (a) renderArticleDetail(a); }
 function decide(decision: Decision): void { if (!state.currentId) return; state.articles = makeDecision(state.currentId, decision, state.articles); saveArticles(state.articles); const updated = state.articles.find(a => a.id === state.currentId); if (decision === 'exclude' && updated) showSnackbar(updated, state); renderAll(); if (updated) renderArticleDetail(updated); const next = getNextArticle(state.articles, state.currentId); if (next) selectArticle(next.id); }
 function navigate(dir: 'next'|'previous'): void { if (!state.currentId) return; const a = dir === 'next' ? getNextArticle(state.articles, state.currentId) : getPreviousArticle(state.articles, state.currentId); if (a) selectArticle(a.id); }
@@ -179,8 +189,10 @@ function bindEvents(): void {
   el('nav-import')?.addEventListener('click', () => showScreen('import')); el('nav-screening')?.addEventListener('click', () => { showScreen('screening'); renderAll(); }); el('nav-analysis')?.addEventListener('click', () => showScreen('analysis')); el('nav-export')?.addEventListener('click', () => showScreen('export'));
   MODAL_FIELDS.forEach((id, i) => { const elem = document.getElementById(id); if (!elem) return; elem.addEventListener('keydown', (ev: Event) => { const ke = ev as KeyboardEvent; if (ke.key !== 'Enter') return; if (elem.tagName === 'TEXTAREA') { if (!ke.shiftKey) { ke.preventDefault(); submitCreateReview(); } return; } ke.preventDefault(); const next = MODAL_FIELDS[i + 1]; if (next) document.getElementById(next)?.focus(); else submitCreateReview(); }); });
   el('btn-create-review')?.addEventListener('click', () => submitCreateReview());
-  el('file-input')?.addEventListener('change', (e) => { const inp = e.target as HTMLInputElement; if (inp.files) { Array.from(inp.files).forEach(f => handleUpload(f)); inp.value = ''; } });
-  const dz = el('drop-zone'); dz?.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); }); dz?.addEventListener('dragleave', () => dz.classList.remove('drop-zone-hover')); dz?.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drop-zone-hover'); const files = (e as DragEvent).dataTransfer?.files; if (files) Array.from(files).forEach(f => handleUpload(f)); });
+  
+  el('file-input')?.addEventListener('change', (e) => { const inp = e.target as HTMLInputElement; if (inp.files && inp.files.length > 0) { void handleMultipleUploads(inp.files); inp.value = ''; } });
+  const dz = el('drop-zone'); dz?.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-zone-hover'); }); dz?.addEventListener('dragleave', () => dz.classList.remove('drop-zone-hover')); dz?.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drop-zone-hover'); const files = (e as DragEvent).dataTransfer?.files; if (files && files.length > 0) void handleMultipleUploads(files); });
+  
   el('btn-crossref-search')?.addEventListener('click', () => { void searchPapers(); }); el('crossref-input')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') void searchPapers(); });
   el('crossref-results')?.addEventListener('click', (e) => { const addBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-add-idx]'); const titleEl = (e.target as HTMLElement).closest<HTMLElement>('.sr-title'); if (addBtn && addBtn.textContent?.trim() !== 'Added') addFromSearch(parseInt(addBtn.dataset['addIdx']!), addBtn.dataset['addKey']!); else if (titleEl) openAbstractModal(parseInt(titleEl.dataset['idx']!)); });
   el('btn-close-abstract')?.addEventListener('click', () => closeModal('abstract-modal')); el('btn-close-abstract-2')?.addEventListener('click', () => closeModal('abstract-modal')); el('abstract-modal')?.addEventListener('click', (e) => { if (e.target === el('abstract-modal')) closeModal('abstract-modal'); });
@@ -188,57 +200,11 @@ function bindEvents(): void {
   el('import-article-list')?.addEventListener('click', (e) => { const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-import]'); if (btn) removeFromImport(btn.dataset['removeImport']!); });
   el('btn-start-screening')?.addEventListener('click', () => startScreening()); el('btn-manage-articles')?.addEventListener('click', () => { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }); el('btn-nav-prisma')?.addEventListener('click', () => showScreen('analysis'));
 
-  // -------------------------------------------------------------
-  // CRITERIA INPUT LOGIC
-  // -------------------------------------------------------------
-  el('input-inclusion')?.addEventListener('keydown', (e) => {
-    const ke = e as KeyboardEvent;
-    if (ke.key === 'Enter' || ke.key === 'Tab') {
-      const val = (e.target as HTMLInputElement).value.trim();
-      if (val) {
-        const current = localStorage.getItem('openreview_inclusion') || '';
-        const arr = current.split('\n').map(s => s.trim()).filter(Boolean);
-        arr.unshift(val); // Put newest at the top
-        localStorage.setItem('openreview_inclusion', arr.join('\n'));
-        (e.target as HTMLInputElement).value = '';
-        renderCriteriaUI();
-      }
-      if (ke.key === 'Enter') ke.preventDefault(); 
-    }
-  });
+  el('input-inclusion')?.addEventListener('keydown', (e) => { const ke = e as KeyboardEvent; if (ke.key === 'Enter' || ke.key === 'Tab') { const val = (e.target as HTMLInputElement).value.trim(); if (val) { const current = localStorage.getItem('openreview_inclusion') || ''; const arr = current.split('\n').map(s => s.trim()).filter(Boolean); arr.unshift(val); localStorage.setItem('openreview_inclusion', arr.join('\n')); (e.target as HTMLInputElement).value = ''; renderCriteriaUI(); } if (ke.key === 'Enter') ke.preventDefault(); } });
+  el('input-exclusion')?.addEventListener('keydown', (e) => { const ke = e as KeyboardEvent; if (ke.key === 'Enter' || ke.key === 'Tab') { const val = (e.target as HTMLInputElement).value.trim(); if (val) { const current = localStorage.getItem('openreview_exclusion') || ''; const arr = current.split('\n').map(s => s.trim()).filter(Boolean); arr.unshift(val); localStorage.setItem('openreview_exclusion', arr.join('\n')); (e.target as HTMLInputElement).value = ''; renderCriteriaUI(); } if (ke.key === 'Enter') ke.preventDefault(); } });
 
-  el('input-exclusion')?.addEventListener('keydown', (e) => {
-    const ke = e as KeyboardEvent;
-    if (ke.key === 'Enter' || ke.key === 'Tab') {
-      const val = (e.target as HTMLInputElement).value.trim();
-      if (val) {
-        const current = localStorage.getItem('openreview_exclusion') || '';
-        const arr = current.split('\n').map(s => s.trim()).filter(Boolean);
-        arr.unshift(val); // Put newest at the top
-        localStorage.setItem('openreview_exclusion', arr.join('\n'));
-        (e.target as HTMLInputElement).value = '';
-        renderCriteriaUI();
-      }
-      if (ke.key === 'Enter') ke.preventDefault();
-    }
-  });
-
-  // -------------------------------------------------------------
-  // BATCH INCLUDE / EXCLUDE LOGIC
-  // -------------------------------------------------------------
-  el('btn-batch-include')?.addEventListener('click', () => {
-    if (!state.articles.length) return;
-    state.articles = state.articles.map(a => ({ ...a, decision: 'include' }));
-    saveArticles(state.articles); renderImportList();
-    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Included.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
-  });
-
-  el('btn-batch-exclude')?.addEventListener('click', () => {
-    if (!state.articles.length) return;
-    state.articles = state.articles.map(a => ({ ...a, decision: 'exclude' }));
-    saveArticles(state.articles); renderImportList();
-    if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Excluded.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; }
-  });
+  el('btn-batch-include')?.addEventListener('click', () => { if (!state.articles.length) return; state.articles = state.articles.map(a => ({ ...a, decision: 'include' })); saveArticles(state.articles); renderImportList(); if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Included.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; } });
+  el('btn-batch-exclude')?.addEventListener('click', () => { if (!state.articles.length) return; state.articles = state.articles.map(a => ({ ...a, decision: 'exclude' })); saveArticles(state.articles); renderImportList(); if (el('import-success')) { el('import-success').textContent = `${state.articles.length} articles marked as Excluded.`; el('import-success').style.display = 'block'; el('import-error').style.display = 'none'; } });
 
   el('btn-inclusion-criteria')?.addEventListener('click', () => { (el('criteria-inclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_inclusion') || ''; (el('criteria-exclusion') as HTMLTextAreaElement).value = localStorage.getItem('openreview_exclusion') || ''; openModal('inclusion-modal'); });
   el('btn-close-inclusion')?.addEventListener('click', () => closeModal('inclusion-modal')); el('btn-save-criteria')?.addEventListener('click', () => { localStorage.setItem('openreview_inclusion', (el('criteria-inclusion') as HTMLTextAreaElement).value); localStorage.setItem('openreview_exclusion', (el('criteria-exclusion') as HTMLTextAreaElement).value); closeModal('inclusion-modal'); renderCriteriaUI(); });
