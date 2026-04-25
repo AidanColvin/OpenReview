@@ -11,14 +11,22 @@
     "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/jszip": "^3.4.0",
+    "@types/multer": "^2.1.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "gh-pages": "^6.3.0",
-    "typescript": "^5.5.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3",
     "vite": "^5.3.4"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jszip": "^3.10.1",
+    "multer": "^2.1.1",
+    "pdf-parse": "^2.4.5"
   }
 }
