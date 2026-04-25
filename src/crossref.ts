@@ -1,58 +1,51 @@
 /**
  * crossref.ts
- * Searches the Crossref REST API for academic papers.
- * No authentication required. Pure functions. No DOM. No side effects.
+ * Searches the Semantic Scholar API for academic papers.
+ * Same paper index as Google Scholar. No API key required.
+ * Pure functions. No DOM. No side effects.
  */
 
 import { Article, makeArticle } from './models';
 
-interface CrossrefAuthor {
-  given?: string;
-  family?: string;
+interface S2Author { name: string }
+interface S2Paper {
+  paperId: string;
+  title: string;
+  abstract: string | null;
+  year: number | null;
+  authors: S2Author[];
+  venue: string | null;
+  externalIds: { DOI?: string } | null;
 }
-
-interface CrossrefWork {
-  DOI?: string;
-  title?: string[];
-  author?: CrossrefAuthor[];
-  abstract?: string;
-  published?: { 'date-parts': number[][] };
-  'container-title'?: string[];
-}
-
-interface CrossrefResponse {
-  status: string;
-  message: { items: CrossrefWork[] };
-}
+interface S2Response { data: S2Paper[] }
 
 /**
- * Given a search query, returns up to 10 Article objects from the Crossref API.
+ * Given a search query, returns up to 10 Article objects from the Semantic Scholar API.
  */
 export async function searchCrossref(query: string): Promise<Article[]> {
   const params = new URLSearchParams({
     query: query.trim(),
-    rows: '10',
-    select: 'DOI,title,author,abstract,published,container-title',
+    limit: '10',
+    fields: 'title,abstract,year,authors,venue,externalIds',
   });
-  const res = await fetch(`https://api.crossref.org/works?${params.toString()}`);
-  if (!res.ok) throw new Error(`Crossref error: ${res.status}`);
-  const data = await res.json() as CrossrefResponse;
-  return data.message.items.map(workToArticle);
+  const res = await fetch(
+    `https://api.semanticscholar.org/graph/v1/paper/search?${params.toString()}`
+  );
+  if (!res.ok) throw new Error(`Search error: ${res.status}`);
+  const data = await res.json() as S2Response;
+  return (data.data ?? []).map(paperToArticle);
 }
 
 /**
- * Given a CrossrefWork, returns a normalized Article object.
+ * Given a Semantic Scholar paper object, returns a normalized Article.
  */
-function workToArticle(w: CrossrefWork): Article {
-  const authors = (w.author ?? []).map(a =>
-    [a.given, a.family].filter(Boolean).join(' ')
-  );
+function paperToArticle(p: S2Paper): Article {
   return makeArticle({
-    title:    w.title?.[0]                                 ?? '',
-    abstract: (w.abstract ?? '').replace(/<[^>]+>/g, '').trim(),
-    authors,
-    year:     w.published?.['date-parts']?.[0]?.[0]       ?? null,
-    journal:  w['container-title']?.[0]                   ?? '',
-    doi:      w.DOI                                       ?? '',
+    title:    p.title                              ?? '',
+    abstract: p.abstract                          ?? '',
+    authors:  (p.authors ?? []).map(a => a.name),
+    year:     p.year                              ?? null,
+    journal:  p.venue                             ?? '',
+    doi:      p.externalIds?.DOI                  ?? '',
   });
 }

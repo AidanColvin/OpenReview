@@ -1,10 +1,11 @@
 /**
  * parser.ts
- * Parses RIS and BibTeX citation file text into Article objects.
- * Pure functions only. No I/O. No DOM. No side effects.
+ * Parses RIS, BibTeX, PDF, DOCX, CSV, XLSX, ZIP, PNG, JPG into Article objects.
+ * DOCX uses JSZip for reliable ZIP extraction.
  */
 
 import { Article, makeArticle } from './models';
+import JSZip from 'jszip';
 
 export interface DedupeResult {
   unique: Article[];
@@ -12,111 +13,280 @@ export interface DedupeResult {
 }
 
 const RIS_FIELD_MAP: Record<string, string> = {
-  TI: 'title',   T1: 'title',
+  TI: 'title', T1: 'title',
   AB: 'abstract',
-  PY: 'year',    Y1: 'year',
+  PY: 'year',   Y1: 'year',
   JO: 'journal', JF: 'journal', T2: 'journal', SO: 'journal',
   DO: 'doi',
   AU: 'authors', A1: 'authors', A2: 'authors',
 };
 
-/**
- * Given raw RIS file text, returns an array of Article objects.
- */
 export function parseRIS(text: string): Article[] {
   const articles: Article[] = [];
   let current: Record<string, unknown> = {};
-
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
-
     if (line.startsWith('ER')) {
-      if (Object.keys(current).length) {
-        articles.push(makeArticle(current as Partial<Article>));
-        current = {};
-      }
+      if (Object.keys(current).length) { articles.push(makeArticle(current as Partial<Article>)); current = {}; }
       continue;
     }
-
     if (line.length < 6) continue;
-    const tag   = line.slice(0, 2).trim();
-    const value = line.slice(6).trim();
+    const tag = line.slice(0,2).trim(); const value = line.slice(6).trim();
     if (!tag || !value) continue;
-
     const field = RIS_FIELD_MAP[tag];
     if (!field) continue;
-
     if (field === 'authors') {
-      const existing = (current['authors'] as string[] | undefined) ?? [];
-      current['authors'] = [...existing, value];
+      current['authors'] = [...((current['authors'] as string[]|undefined) ?? []), value];
     } else if (field === 'year') {
-      const y = parseYear(value);
-      if (y !== null) current['year'] = y;
-    } else if (!current[field]) {
-      current[field] = value;
-    }
+      const y = _parseYear(value); if (y) current['year'] = y;
+    } else if (!current[field]) { current[field] = value; }
   }
-
   if (Object.keys(current).length) articles.push(makeArticle(current as Partial<Article>));
   return articles;
 }
 
-/**
- * Given raw BibTeX file text, returns an array of Article objects.
- */
 export function parseBibTeX(text: string): Article[] {
   const entries = [...text.matchAll(/@\w+\s*\{[^@]+?\n\}/gs)].map(m => m[0]);
   return entries.map(entry => {
-    const get = (pattern: string): string | null => {
-      const re1 = new RegExp(pattern + '\\s*=\\s*\\{([^}]*)\\}', 'i');
-      const re2 = new RegExp(pattern + '\\s*=\\s*"([^"]*)"', 'i');
-      const m   = entry.match(re1) ?? entry.match(re2);
-      return m ? m[1].replace(/\s+/g, ' ').replace(/[{}]/g, '').trim() : null;
+    const get = (p: string): string | null => {
+      const m = entry.match(new RegExp(p+'\\s*=\\s*\\{([^}]*)\\}','i'))
+             ?? entry.match(new RegExp(p+'\\s*=\\s*"([^"]*)"','i'));
+      return m ? m[1].replace(/\s+/g,' ').replace(/[{}]/g,'').trim() : null;
     };
-
-    const authorRaw = get('author');
+    const ar = get('author');
     return makeArticle({
-      title:    get('title')                         ?? '',
-      abstract: get('abstract')                      ?? '',
-      journal:  get('journal|booktitle|publisher')   ?? '',
-      doi:      get('doi')                           ?? '',
-      year:     parseYear(get('year') ?? ''),
-      authors:  authorRaw
-        ? authorRaw.split(/\s+and\s+/i).map(a => a.trim())
-        : [],
+      title:    get('title')                       ?? '',
+      abstract: get('abstract')                    ?? '',
+      journal:  get('journal|booktitle|publisher') ?? '',
+      doi:      get('doi')                         ?? '',
+      year:     _parseYear(get('year') ?? ''),
+      authors:  ar ? ar.split(/\s+and\s+/i).map(a => a.trim()) : [],
     });
   });
 }
 
 /**
- * Given an articles array, returns a deduplicated array and a list of removed identifiers.
+ * Given a DOCX File, uses JSZip to extract word/document.xml and return Article objects.
  */
+export async function parseDocx(file: File): Promise<Article[]> {
+  const buf = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buf);
+
+  // Try to get title from core properties
+  let title = '';
+  const core = zip.file('docProps/core.xml');
+  if (core) {
+    const coreXml = await core.async('string');
+    const tm = coreXml.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/i);
+    if (tm) title = tm[1].trim();
+  }
+
+  // Extract body text from document.xml
+  let bodyText = '';
+  const doc = zip.file('word/document.xml');
+  if (doc) {
+    const xml = await doc.async('string');
+    // Extract all <w:t> text nodes
+    const texts: string[] = [];
+    for (const m of xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)) {
+      const t = m[1].trim();
+      if (t) texts.push(t);
+    }
+    // Group by paragraphs
+    const paragraphs: string[] = [];
+    let para = '';
+    const parts = xml.split(/<w:p[ >]/);
+    for (const part of parts) {
+      const ts: string[] = [];
+      for (const m of part.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)) {
+        const t = m[1];
+        if (t.trim()) ts.push(t);
+      }
+      if (ts.length) paragraphs.push(ts.join(''));
+    }
+    bodyText = paragraphs.join('\n');
+
+    // Use first meaningful paragraph as title if not found in metadata
+    if (!title) {
+      title = paragraphs.find(p => p.trim().length > 3 && p.trim().length < 300) ?? '';
+    }
+  }
+
+  return [makeArticle({
+    title:    title || file.name.replace(/\.docx$/i,''),
+    abstract: bodyText.slice(0, 2000),
+    journal:  file.name,
+  })];
+}
+
+/**
+ * Given a PDF File, extracts text strings from PDF content streams.
+ */
+export async function parsePdf(file: File): Promise<Article[]> {
+  const buf = await file.arrayBuffer();
+  const latin = new TextDecoder('latin1').decode(buf);
+
+  let title = '';
+  const tm = latin.match(/\/Title\s*\(([^)]{1,300})\)/);
+  if (tm) title = _pdfDecode(tm[1]);
+
+  const strings: string[] = [];
+  for (const m of latin.matchAll(/\(([^)]{3,300})\)\s*Tj/g)) {
+    const s = _pdfDecode(m[1]);
+    if (_isPrintable(s)) strings.push(s);
+  }
+  for (const m of latin.matchAll(/\[([^\]]{1,600})\]\s*TJ/g)) {
+    for (const sub of m[1].matchAll(/\(([^)]{2,200})\)/g)) {
+      const s = _pdfDecode(sub[1]);
+      if (_isPrintable(s)) strings.push(s);
+    }
+  }
+
+  const body = strings.join(' ').replace(/\s+/g,' ').trim();
+  if (!title) title = strings.find(s => s.length > 4 && s.length < 200) ?? file.name.replace(/\.pdf$/i,'');
+
+  return [makeArticle({ title, abstract: body.slice(0,2000), journal: file.name })];
+}
+
+/**
+ * Given a CSV or TSV File, creates one Article per non-empty row using the first column as title.
+ */
+export async function parseCsv(file: File): Promise<Article[]> {
+  const text = await file.text();
+  const sep  = file.name.toLowerCase().endsWith('.tsv') ? '\t' : ',';
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+
+  const header = lines[0].split(sep).map(h => h.replace(/^"|"$/g,'').toLowerCase());
+  const titleIdx    = header.findIndex(h => h.includes('title'));
+  const abstractIdx = header.findIndex(h => h.includes('abstract'));
+  const authorIdx   = header.findIndex(h => h.includes('author'));
+  const yearIdx     = header.findIndex(h => h.includes('year'));
+  const journalIdx  = header.findIndex(h => h.includes('journal') || h.includes('source'));
+
+  return lines.slice(1).map(line => {
+    const cols = line.split(sep).map(c => c.replace(/^"|"$/g,'').trim());
+    return makeArticle({
+      title:    cols[titleIdx]    ?? cols[0] ?? '',
+      abstract: cols[abstractIdx] ?? '',
+      authors:  cols[authorIdx]   ? [cols[authorIdx]] : [],
+      year:     _parseYear(cols[yearIdx] ?? ''),
+      journal:  cols[journalIdx]  ?? file.name,
+    });
+  }).filter(a => a.title.length > 0);
+}
+
+/**
+ * Given an XLSX/XLS File, extracts rows using basic XML parsing from the ZIP structure.
+ */
+export async function parseXlsx(file: File): Promise<Article[]> {
+  try {
+    const buf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+
+    // Read shared strings
+    const sharedStrings: string[] = [];
+    const ssFile = zip.file('xl/sharedStrings.xml');
+    if (ssFile) {
+      const xml = await ssFile.async('string');
+      for (const m of xml.matchAll(/<t[^>]*>([^<]*)<\/t>/g)) {
+        sharedStrings.push(m[1]);
+      }
+    }
+
+    // Read first sheet
+    const sheet = zip.file('xl/worksheets/sheet1.xml');
+    if (!sheet) return [makeArticle({ title: file.name, journal: file.name })];
+
+    const xml  = await sheet.async('string');
+    const rows: string[][] = [];
+    for (const rowMatch of xml.matchAll(/<row[^>]*>(.*?)<\/row>/gs)) {
+      const cells: string[] = [];
+      for (const cellMatch of rowMatch[1].matchAll(/<c[^>]*(?:t="s"[^>]*)?>.*?<v>(\d+)<\/v>|<c[^>]*>.*?<v>([^<]*)<\/v>/gs)) {
+        if (cellMatch[1] !== undefined) {
+          cells.push(sharedStrings[parseInt(cellMatch[1])] ?? '');
+        } else {
+          cells.push(cellMatch[2] ?? '');
+        }
+      }
+      if (cells.some(c => c.trim())) rows.push(cells);
+    }
+
+    if (rows.length < 2) return [makeArticle({ title: file.name, journal: file.name })];
+
+    const header  = rows[0].map(h => h.toLowerCase());
+    const titleIdx    = header.findIndex(h => h.includes('title'));
+    const abstractIdx = header.findIndex(h => h.includes('abstract'));
+    const authorIdx   = header.findIndex(h => h.includes('author'));
+    const yearIdx     = header.findIndex(h => h.includes('year'));
+
+    return rows.slice(1).map(row => makeArticle({
+      title:    row[titleIdx]    ?? row[0] ?? file.name,
+      abstract: row[abstractIdx] ?? '',
+      authors:  row[authorIdx]   ? [row[authorIdx]] : [],
+      year:     _parseYear(row[yearIdx] ?? ''),
+      journal:  file.name,
+    })).filter(a => a.title.length > 0);
+  } catch {
+    return [makeArticle({ title: file.name, journal: file.name })];
+  }
+}
+
+/**
+ * Given a ZIP File, extracts and parses any RIS or BibTeX files inside it.
+ */
+export async function parseZip(file: File): Promise<Article[]> {
+  const buf     = await file.arrayBuffer();
+  const zip     = await JSZip.loadAsync(buf);
+  const results: Article[] = [];
+
+  for (const [name, entry] of Object.entries(zip.files)) {
+    if (entry.dir) continue;
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.ris')) {
+      const text = await entry.async('string');
+      results.push(...parseRIS(text));
+    } else if (lower.endsWith('.bib')) {
+      const text = await entry.async('string');
+      results.push(...parseBibTeX(text));
+    } else if (lower.endsWith('.docx')) {
+      const blob = await entry.async('blob');
+      const f    = new File([blob], name);
+      results.push(...await parseDocx(f));
+    }
+  }
+
+  if (!results.length) results.push(makeArticle({ title: file.name, journal: file.name }));
+  return results;
+}
+
+/**
+ * Given an image File (PNG or JPG), creates a placeholder Article using the filename as title.
+ */
+export function parseImage(file: File): Article[] {
+  const title = file.name.replace(/\.(png|jpe?g)$/i, '').replace(/[-_]/g, ' ');
+  return [makeArticle({ title: title || file.name, journal: file.name })];
+}
+
 export function deduplicateArticles(articles: Article[]): DedupeResult {
   const seenDois   = new Set<string>();
   const seenTitles = new Set<string>();
   const unique: Article[]  = [];
   const removed: string[]  = [];
-
   for (const a of articles) {
     const doi   = a.doi.trim().toLowerCase();
     const title = a.title.trim().toLowerCase();
-
     if (doi   && seenDois.has(doi))     { removed.push(a.doi);   continue; }
     if (title && seenTitles.has(title)) { removed.push(a.title); continue; }
-
     if (doi)   seenDois.add(doi);
     if (title) seenTitles.add(title);
     unique.push(a);
   }
-
   return { unique, removed };
 }
 
-/**
- * Given a year string, returns an integer year or null if unparseable.
- */
-function parseYear(value: string): number | null {
+function _parseYear(value: string): number | null {
   if (!value) return null;
   const m = String(value).match(/\d{4}/);
   if (!m) return null;
@@ -124,72 +294,15 @@ function parseYear(value: string): number | null {
   return y >= 1000 && y <= 2100 ? y : null;
 }
 
-/**
- * Given a DOCX File object, returns an array of Article objects extracted from its text.
- * Uses the mammoth-style approach: reads raw XML from the docx zip to extract paragraphs.
- */
-export async function parseDocx(file: File): Promise<Article[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const uint8 = new Uint8Array(arrayBuffer);
-
-  // Find document.xml inside the ZIP by scanning for its content
-  const decoder = new TextDecoder('utf-8', { fatal: false });
-  const raw = decoder.decode(uint8);
-
-  // Extract text between XML tags
-  const text = raw
-    .replace(/<w:p[ >]/g, '\n<w:p>')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#x[0-9A-Fa-f]+;/g, '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 20)
-    .join('\n');
-
-  return _textToArticles(text, file.name);
+function _pdfDecode(s: string): string {
+  return s
+    .replace(/\\n/g,' ').replace(/\\r/g,' ').replace(/\\t/g,' ')
+    .replace(/\\\\/g,'\\').replace(/\\\(/g,'(').replace(/\\\)/g,')')
+    .replace(/[^\x20-\x7E]/g,'').trim();
 }
 
-/**
- * Given a PDF File object, returns an array of Article objects extracted via basic text parsing.
- * Reads the raw PDF stream and extracts visible text strings.
- */
-export async function parsePdf(file: File): Promise<Article[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const decoder = new TextDecoder('latin1');
-  const raw = decoder.decode(arrayBuffer);
-
-  // Extract strings from PDF text stream operators (Tj and TJ)
-  const strings: string[] = [];
-  const tjMatches = raw.matchAll(/\(([^)]{2,200})\)\s*Tj/g);
-  for (const m of tjMatches) strings.push(m[1]);
-  const tjMatches2 = raw.matchAll(/\[([^\]]+)\]\s*TJ/g);
-  for (const m of tjMatches2) {
-    const inner = m[1].replace(/\([^)]*\)/g, s => s.slice(1, -1)).replace(/[-\d.]+/g, '');
-    if (inner.trim().length > 2) strings.push(inner.trim());
-  }
-
-  const text = strings
-    .map(s => s.replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\\(/g, '(').replace(/\\\)/g, ')'))
-    .join(' ');
-
-  return _textToArticles(text, file.name);
-}
-
-/**
- * Given plain text and a source filename, returns up to one Article object with the text as abstract.
- * Used as a fallback for PDF and DOCX imports when structured parsing is not possible.
- */
-function _textToArticles(text: string, filename: string): Article[] {
-  if (!text.trim()) return [];
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const title = lines.find(l => l.length > 10 && l.length < 200) || filename.replace(/\.[^.]+$/, '');
-  return [makeArticle({
-    title,
-    abstract: lines.slice(0, 20).join(' ').slice(0, 2000),
-    journal: filename,
-  })];
+function _isPrintable(s: string): boolean {
+  if (!s || s.length < 2) return false;
+  const printable = (s.match(/[\x20-\x7E]/g) ?? []).length;
+  return printable / s.length > 0.7;
 }
