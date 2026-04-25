@@ -99,7 +99,6 @@ function renderImportList(): void {
   } catch (error) {}
 }
 
-// RESTORED FIX: Sequential multiple uploads guarantee NO DROPPED FILES
 async function handleMultipleUploads(files: FileList | File[]): Promise<void> {
   const errEl  = el('import-error'); const okEl = el('import-success');
   if (errEl) errEl.style.display = 'none'; if (okEl) okEl.style.display = 'none';
@@ -150,14 +149,14 @@ function renderSearchResults(): void {
   }).join('');
 }
 
-// RESTORED FIX: Deep Clone prevents deduplication bug, allowing infinite Google Scholar adds
+// RESTORED FIX: DEEP CLONE FOR SEARCH ADDITION (Bypasses deduplicator bug so it actually adds!)
 function addFromSearch(idx: number, key: string): void {
   const a = lastSearchResults[idx]; if (!a) return;
   addedKeys.add(key);
   const newArt = JSON.parse(JSON.stringify(a));
   newArt.id = Math.random().toString(36).substring(2);
   newArt.decision = 'unscreened';
-  state.articles = [newArt, ...state.articles]; // Add straight to state (bypasses silent deduplicator drops)
+  state.articles = [newArt, ...state.articles]; 
   saveArticles(state.articles); 
   renderImportList(); renderSearchResults();
 }
@@ -173,6 +172,7 @@ function openAbstractModal(idx: number): void {
 function removeFromImport(id: string): void { state.articles = state.articles.filter(a => a.id !== id); saveArticles(state.articles); renderImportList(); if (lastSearchResults.length) renderSearchResults(); }
 function startScreening(): void { if (!state.articles.length) return; showScreen('screening'); renderAll(); autoSelectFirst(); }
 function autoSelectFirst(): void { const first = state.articles.find(a => a.decision === 'unscreened') ?? state.articles[0]; if (first) selectArticle(first.id); }
+
 function selectArticle(id: string): void { state.currentId = id; renderArticleList(state); const a = state.articles.find(x => x.id === id); if (a) renderArticleDetail(a); }
 function decide(decision: Decision): void { if (!state.currentId) return; state.articles = makeDecision(state.currentId, decision, state.articles); saveArticles(state.articles); const updated = state.articles.find(a => a.id === state.currentId); if (decision === 'exclude' && updated) showSnackbar(updated, state); renderAll(); if (updated) renderArticleDetail(updated); const next = getNextArticle(state.articles, state.currentId); if (next) selectArticle(next.id); }
 function navigate(dir: 'next'|'previous'): void { if (!state.currentId) return; const a = dir === 'next' ? getNextArticle(state.articles, state.currentId) : getPreviousArticle(state.articles, state.currentId); if (a) selectArticle(a.id); }
