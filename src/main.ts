@@ -1,9 +1,6 @@
-/**
- * main.ts
- * Vite entry point. Imports the app bootstrap and global styles.
- */
-
 import { boot } from './app';
-import './style.css';
 
-document.addEventListener('DOMContentLoaded', boot);
+// This is the spark that starts the engine in app.ts
+document.addEventListener('DOMContentLoaded', () => {
+  boot();
+});
