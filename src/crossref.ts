@@ -2,8 +2,8 @@ import { Article, makeArticle } from './models';
 
 export async function searchCrossref(query: string, engine: string): Promise<Article[]> {
   try {
-    // 1. OFFICIAL PUBMED API (Bulletproof, exact match for medical literature)
     if (engine === 'pubmed') {
+      // 1. PUBMED LOGIC (UNTOUCHED)
       const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=15`;
       const searchRes = await fetch(searchUrl);
       if (!searchRes.ok) throw new Error("PubMed API Error");
@@ -30,59 +30,32 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
           decision: 'unscreened'
         });
       }).filter(Boolean) as Article[];
-    } 
-    
-    // 2. GOOGLE SCHOLAR PROXY (Dual-Layer: Semantic Scholar -> Strict Crossref)
-    else {
-      // LAYER A: Semantic Scholar (Highest quality, mimics Google Scholar's algorithm)
-      try {
-        const semUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=15&fields=title,authors,venue,year,abstract,externalIds`;
-        const semRes = await fetch(semUrl);
-        if (!semRes.ok) throw new Error("Rate Limited");
-        
-        const semData = await semRes.json();
-        if (semData.data && semData.data.length > 0) {
-          return semData.data.map((item: any) => makeArticle({
-            title: item.title || 'Untitled',
-            authors: item.authors ? item.authors.map((a: any) => a.name) : [],
-            journal: item.venue || 'Google Scholar',
-            year: item.year || null,
-            abstract: item.abstract || '',
-            doi: item.externalIds?.DOI || '',
-            decision: 'unscreened'
-          }));
-        }
-      } catch (semError) {
-        console.warn("Primary Scholar API blocked. Engaging strict Crossref fallback...");
-      }
-
-      // LAYER B: Crossref Fallback (Strictly filtered for 'journal-article' only)
-      const crossUrl = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&filter=type:journal-article&select=title,author,container-title,issued,abstract,DOI&rows=15`;
-      const crossRes = await fetch(crossUrl);
-      if (!crossRes.ok) throw new Error("Scholar API Error");
+    } else {
+      // 2. GOOGLE SCHOLAR REPLACEMENT (OPENALEX API)
+      // OpenAlex is an academic-only database. It ignores non-research documents.
+      const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&filter=type:article&per-page=15`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Scholar API Error");
       
-      const crossData = await crossRes.json();
-      const items = crossData.message?.items || [];
+      const data = await res.json();
+      const items = data.results || [];
       
       return items.map((item: any) => {
-        const title = item.title ? item.title[0] : 'Untitled';
-        const authors = item.author ? item.author.map((a: any) => `${a.given || ''} ${a.family || ''}`.trim()) : [];
-        const journal = item['container-title'] ? item['container-title'][0] : 'Google Scholar';
-        const year = item.issued && item.issued['date-parts'] ? item.issued['date-parts'][0][0] : null;
-        
-        let abstract = item.abstract || '';
-        abstract = abstract.replace(/<[^>]*>?/gm, ''); // Strip XML tags
+        const title = item.title || 'Untitled';
+        const authors = item.authorships ? item.authorships.map((a: any) => a.author?.display_name || '').filter(Boolean) : [];
+        const journal = item.primary_location?.source?.display_name || 'Google Scholar';
+        const year = item.publication_year || null;
         
         return makeArticle({
           title,
           authors,
           journal,
           year,
-          abstract,
-          doi: item.DOI || '',
+          abstract: '',
+          doi: item.doi ? item.doi.replace('https://doi.org/', '') : '',
           decision: 'unscreened'
         });
-      }).filter((a: Article) => a.title !== 'Untitled' && a.title.length > 5);
+      }).filter((a: Article) => a.title !== 'Untitled');
     }
   } catch (error) {
     console.error("Search Error:", error);
