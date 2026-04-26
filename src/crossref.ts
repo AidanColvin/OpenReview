@@ -1,7 +1,12 @@
 import { Article, makeArticle } from './models';
-export async function searchCrossref(query: string): Promise<Article[]> {
+export async function searchCrossref(query: string, engine: string = 'pubmed'): Promise<Article[]> {
   try {
-    const encoded = encodeURIComponent(query);
+    let finalQuery = query;
+    if (engine === 'pubmed') finalQuery = `source:pubmed ${query}`;
+    else if (engine === 'embase') finalQuery = `venue:embase ${query}`;
+    else if (engine === 'cochrane') finalQuery = `venue:cochrane ${query}`;
+    
+    const encoded = encodeURIComponent(finalQuery);
     const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encoded}&limit=12&fields=title,authors,venue,year,abstract,externalIds`;
     const res = await fetch(url);
     if (!res.ok) throw new Error();

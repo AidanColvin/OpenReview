@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V20</title>
+  <title>OpenReview V21</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
     .nav-tab { font-size: 0.875rem; color: #666; padding: 0.5rem 1rem; cursor: pointer; border: none; background: none; font-weight: 500; }
     .nav-tab.active { color: #000; font-weight: 700; border-bottom: 2px solid #000; }
+    .nav-tab:hover { color: #000; }
     .or-wordmark { font-family: serif; font-weight: bold; }
     .accent { color: #c4622d; }
     .engine-btn { font-size: 0.72rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; transition: all 0.2s; }
@@ -77,12 +78,12 @@
 
       <div style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid #e8e4df; padding-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem;">
         <div>
-          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(0,0,0,0.05); background:rgba(85, 107, 85, 0.03); color:#000; margin-bottom: 1rem; text-align:center;">Inclusion Criteria</div>
+          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(0,0,0,0.05); background:rgba(85, 107, 85, 0.04); color:#000; margin-bottom: 1rem; text-align:center;">Inclusion Criteria</div>
           <input id="input-inclusion" type="text" placeholder="Type criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
           <div id="list-inclusion" style="display:flex; flex-direction:column; gap:0.4rem;"></div>
         </div>
         <div>
-          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(0,0,0,0.05); background:rgba(128, 0, 0, 0.03); color:#000; margin-bottom: 1rem; text-align:center;">Exclusion Criteria</div>
+          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(0,0,0,0.05); background:rgba(128, 0, 0, 0.04); color:#000; margin-bottom: 1rem; text-align:center;">Exclusion Criteria</div>
           <input id="input-exclusion" type="text" placeholder="Type criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
           <div id="list-exclusion" style="display:flex; flex-direction:column; gap:0.4rem;"></div>
         </div>

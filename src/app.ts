@@ -71,7 +71,8 @@ async function triggerSearch() {
   const resultsEl = el('crossref-results');
   resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;">Searching ' + currentEngine + '...</p>';
   try {
-    lastSearchResults = await searchCrossref(query);
+    // PASS THE ENGINE TO THE CROSSREF HANDLER
+    lastSearchResults = await searchCrossref(query, currentEngine);
     if (!lastSearchResults.length) { resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
     resultsEl.innerHTML = lastSearchResults.map((a, i) => `
       <div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;">
