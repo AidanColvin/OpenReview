@@ -22,14 +22,17 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
         });
       }).filter(Boolean) as Article[];
     } else {
-      const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&filter=type:article&per-page=15`;
+      // Improved Scholar Logic: English Research focus with abstracts
+      const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=15&fields=title,authors,venue,year,abstract,externalIds`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error("Fallback");
       const data = await res.json();
-      return (data.results || []).map((item: any) => makeArticle({
+      return (data.data || []).map((item: any) => makeArticle({
         title: item.title || 'Untitled',
-        authors: item.authorships ? item.authorships.map((a: any) => a.author?.display_name || '').filter(Boolean) : [],
-        journal: item.primary_location?.source?.display_name || 'Google Scholar',
-        year: item.publication_year || null,
+        authors: item.authors ? item.authors.map((a: any) => a.name) : [],
+        journal: item.venue || 'Google Scholar',
+        year: item.year || null,
+        abstract: item.abstract || '',
         decision: 'unscreened'
       }));
     }
