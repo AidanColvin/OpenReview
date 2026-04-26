@@ -56,9 +56,8 @@ function renderCriteriaUI() {
 }
 
 async function handleUploads(files: FileList) {
-  const fileArray = Array.from(files);
   const newlyParsed: Article[] = [];
-  for (const file of fileArray) {
+  for (const file of Array.from(files)) {
     let p: Article[] = [];
     if (file.name.endsWith('.pdf')) p = await parsePdf(file);
     else if (file.name.endsWith('.docx')) p = await parseDocx(file);
@@ -73,21 +72,37 @@ async function handleUploads(files: FileList) {
   saveArticles(state.articles); renderImportList();
 }
 
-function bindEvents(): void {
-  ['import','screening','analysis','export'].forEach(s => el('nav-' + s).onclick = () => showScreen(s));
-  el('file-input').onchange = (e) => { const f = (e.target as HTMLInputElement).files; if (f) handleUploads(f); };
-  el('btn-crossref-search').onclick = async () => {
-    const query = (el('crossref-input') as HTMLInputElement).value;
-    el('crossref-results').innerHTML = '<p style="padding:1rem;text-align:center;">Searching...</p>';
+async function runSearch() {
+  const queryInput = el('crossref-input') as HTMLInputElement;
+  const query = queryInput.value.trim();
+  if (!query) return;
+  const resultsEl = el('crossref-results');
+  resultsEl.innerHTML = `<p style="padding:1rem;text-align:center;">Searching ${currentEngine}...</p>`;
+  
+  try {
     lastSearchResults = await searchCrossref(`${currentEngine} ${query}`);
-    if (!lastSearchResults.length) { el('crossref-results').innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
-    el('crossref-results').innerHTML = lastSearchResults.map((a, i) => `
+    if (!lastSearchResults.length) {
+      resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>';
+      return;
+    }
+    resultsEl.innerHTML = lastSearchResults.map((a, i) => `
       <div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;">
         <div style="flex:1;"><p style="font-size:12px;font-weight:600;margin:0;">${esc(a.title)}</p></div>
         <button class="add-btn" data-idx="${i}" style="font-size:11px;background:#fdf0ea;color:#c4622d;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">+ add</button>
       </div>
     `).join('');
-  };
+  } catch (e) {
+    resultsEl.innerHTML = '<p style="padding:1rem;color:red;text-align:center;">Search failed. Check connection.</p>';
+  }
+}
+
+function bindEvents(): void {
+  ['import','screening','analysis','export'].forEach(s => el('nav-' + s).onclick = () => showScreen(s));
+  el('file-input').onchange = (e) => { const f = (e.target as HTMLInputElement).files; if (f) handleUploads(f); };
+  
+  el('btn-crossref-search').onclick = runSearch;
+  el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') runSearch(); };
+
   el('crossref-results').onclick = (e) => {
     const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
     if (btn) {
@@ -98,12 +113,15 @@ function bindEvents(): void {
       btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
     }
   };
+
   document.querySelectorAll('.engine-btn').forEach(b => {
     (b as HTMLElement).onclick = () => {
       document.querySelectorAll('.engine-btn').forEach(btn => btn.classList.remove('active'));
-      b.classList.add('active'); currentEngine = (b as HTMLElement).dataset.engine!;
+      b.classList.add('active');
+      currentEngine = (b as HTMLElement).dataset.engine!;
     };
   });
+
   ['inclusion', 'exclusion'].forEach(type => {
     const input = el('input-' + type) as HTMLInputElement;
     input.onkeydown = (e) => {
