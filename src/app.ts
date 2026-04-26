@@ -51,16 +51,22 @@ function renderCriteriaUI() {
     if (!listEl) return;
     const data = localStorage.getItem('openreview_' + type) || '';
     const items = data.split('\n').filter(Boolean);
-    listEl.innerHTML = items.map(item => `<div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a;">${esc(item)}</div>`).join('');
+    listEl.innerHTML = items.map(item => `
+      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">
+        ${esc(item)}
+      </div>
+    `).join('');
   });
 }
 
 async function handleUploads(files: FileList) {
+  const fileArray = Array.from(files);
   const newlyParsed: Article[] = [];
-  for (const file of Array.from(files)) {
+  for (const file of fileArray) {
     let p: Article[] = [];
     if (file.name.endsWith('.pdf')) p = await parsePdf(file);
     else if (file.name.endsWith('.docx')) p = await parseDocx(file);
+    
     p.forEach(art => {
       art.id = Math.random().toString(36).substr(2, 9);
       art.journal = file.name;
@@ -69,7 +75,8 @@ async function handleUploads(files: FileList) {
     newlyParsed.push(...p);
   }
   state.articles = [...newlyParsed, ...state.articles];
-  saveArticles(state.articles); renderImportList();
+  saveArticles(state.articles); 
+  renderImportList();
 }
 
 async function runSearch() {
@@ -80,7 +87,13 @@ async function runSearch() {
   resultsEl.innerHTML = `<p style="padding:1rem;text-align:center;">Searching ${currentEngine}...</p>`;
   
   try {
-    lastSearchResults = await searchCrossref(`${currentEngine} ${query}`);
+    // Engine-specific query modification
+    let searchQuery = query;
+    if (currentEngine === 'pubmed') searchQuery = `source:pubmed ${query}`;
+    else if (currentEngine === 'cochrane') searchQuery = `source:cochrane ${query}`;
+    else if (currentEngine === 'embase') searchQuery = `source:embase ${query}`;
+
+    lastSearchResults = await searchCrossref(searchQuery);
     if (!lastSearchResults.length) {
       resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>';
       return;
@@ -98,7 +111,11 @@ async function runSearch() {
 
 function bindEvents(): void {
   ['import','screening','analysis','export'].forEach(s => el('nav-' + s).onclick = () => showScreen(s));
-  el('file-input').onchange = (e) => { const f = (e.target as HTMLInputElement).files; if (f) handleUploads(f); };
+  el('file-input').onchange = (e) => { 
+    const f = (e.target as HTMLInputElement).files; 
+    if (f) handleUploads(f);
+    (e.target as HTMLInputElement).value = ''; // Reset AFTER upload logic starts
+  };
   
   el('btn-crossref-search').onclick = runSearch;
   el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') runSearch(); };
@@ -129,7 +146,7 @@ function bindEvents(): void {
         const val = input.value.trim();
         if (val) {
           const cur = localStorage.getItem('openreview_' + type) || '';
-          localStorage.setItem('openreview_' + type, val + '\n' + cur);
+          localStorage.setItem('openreview_' + type, val + (cur ? '\n' + cur : ''));
           input.value = ''; renderCriteriaUI();
         }
         if (e.key === 'Enter') e.preventDefault();
