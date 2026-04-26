@@ -2,9 +2,9 @@ import { Article, makeArticle } from './models';
 
 export async function searchCrossref(query: string, engine: string): Promise<Article[]> {
   try {
-    // 1. OFFICIAL PUBMED API (Untouched, exactly as it worked in V24)
+    // 1. OFFICIAL PUBMED API (Bulletproof, exact match for medical literature)
     if (engine === 'pubmed') {
-      const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=12`;
+      const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=15`;
       const searchRes = await fetch(searchUrl);
       if (!searchRes.ok) throw new Error("PubMed API Error");
       
@@ -32,14 +32,37 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
       }).filter(Boolean) as Article[];
     } 
     
-    // 2. NEW BULLETPROOF SCHOLAR API (Crossref API - No Rate Limits)
+    // 2. GOOGLE SCHOLAR PROXY (Dual-Layer: Semantic Scholar -> Strict Crossref)
     else {
-      const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&select=title,author,container-title,issued,abstract,DOI&rows=12`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Scholar API Error");
+      // LAYER A: Semantic Scholar (Highest quality, mimics Google Scholar's algorithm)
+      try {
+        const semUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=15&fields=title,authors,venue,year,abstract,externalIds`;
+        const semRes = await fetch(semUrl);
+        if (!semRes.ok) throw new Error("Rate Limited");
+        
+        const semData = await semRes.json();
+        if (semData.data && semData.data.length > 0) {
+          return semData.data.map((item: any) => makeArticle({
+            title: item.title || 'Untitled',
+            authors: item.authors ? item.authors.map((a: any) => a.name) : [],
+            journal: item.venue || 'Google Scholar',
+            year: item.year || null,
+            abstract: item.abstract || '',
+            doi: item.externalIds?.DOI || '',
+            decision: 'unscreened'
+          }));
+        }
+      } catch (semError) {
+        console.warn("Primary Scholar API blocked. Engaging strict Crossref fallback...");
+      }
+
+      // LAYER B: Crossref Fallback (Strictly filtered for 'journal-article' only)
+      const crossUrl = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&filter=type:journal-article&select=title,author,container-title,issued,abstract,DOI&rows=15`;
+      const crossRes = await fetch(crossUrl);
+      if (!crossRes.ok) throw new Error("Scholar API Error");
       
-      const data = await res.json();
-      const items = data.message?.items || [];
+      const crossData = await crossRes.json();
+      const items = crossData.message?.items || [];
       
       return items.map((item: any) => {
         const title = item.title ? item.title[0] : 'Untitled';
@@ -47,9 +70,8 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
         const journal = item['container-title'] ? item['container-title'][0] : 'Google Scholar';
         const year = item.issued && item.issued['date-parts'] ? item.issued['date-parts'][0][0] : null;
         
-        // Clean up XML tags often found in Crossref abstracts
         let abstract = item.abstract || '';
-        abstract = abstract.replace(/<[^>]*>?/gm, '');
+        abstract = abstract.replace(/<[^>]*>?/gm, ''); // Strip XML tags
         
         return makeArticle({
           title,
@@ -60,7 +82,7 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
           doi: item.DOI || '',
           decision: 'unscreened'
         });
-      });
+      }).filter((a: Article) => a.title !== 'Untitled' && a.title.length > 5);
     }
   } catch (error) {
     console.error("Search Error:", error);
