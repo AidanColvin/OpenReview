@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V34</title>
+  <title>OpenReview V35</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
@@ -12,33 +12,32 @@
     .or-wordmark { font-family: serif; font-weight: bold; }
     .accent { color: #c4622d; }
     
-    /* Smaller Buttons */
     .engine-btn { font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; }
     .engine-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
-    #btn-crossref-search { font-size: 0.8rem; padding: 0.4rem 1rem; }
-    #btn-start-screening { font-size: 0.85rem; padding: 0.6rem; }
     
     .vis-btn { flex: 1; font-size: 0.75rem; padding: 0.6rem; border-radius: 8px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; font-weight: 600; }
     .vis-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .or-input { width: 100%; border: 1px solid #e8e4df; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.875rem; outline: none; }
     .or-overlay { background: rgba(250, 249, 247, 0.98); backdrop-filter: blur(10px); }
     
-    /* Screening Layout Fix: Narrow List, Wide Reader */
+    /* Screening Layout */
     .screen-layout { display: grid; grid-template-columns: 200px 320px 1fr; height: calc(100vh - 52px); overflow: hidden; }
     .pane { height: 100%; overflow-y: auto; border-right: 1px solid #e8e4df; background: #fff; }
     .pane-sidebar { background: #faf9f7; padding: 1rem; }
     .pane-list { background: #fff; border-right: 1px solid #e8e4df; }
     .pane-reader { background: #fff; padding: 3rem; }
     
-    .article-card { padding: 0.85rem 1rem; border-bottom: 1px solid #f0ece8; cursor: pointer; transition: background 0.1s; border-left: 3px solid transparent; }
+    .article-card { padding: 0.85rem 1rem; border-bottom: 1px solid #f0ece8; cursor: pointer; border-left: 3px solid transparent; }
     .article-card.selected { background: #fdf0ea; border-left-color: #c4622d; }
     
-    .status-pill { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; margin-bottom: 4px; display: inline-block; }
+    .status-pill { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; display: inline-block; }
     .status-unscreened { background: #eee; color: #888; }
-    .status-included { background: #e6f9f0; color: #1a6b42; }
-    .status-excluded { background: #fde8e8; color: #8b1a1a; }
+    
+    /* SHRUNKEN BOTTOM BUTTONS (60% Smaller) */
+    .stat-box-small { flex: 0.4; background:#fff; border:1px solid #e8e4df; padding:4px; border-radius:8px; text-align:center; }
+    .btn-action-small { flex: 1; background:#1a1a1a; color:#fff; font-weight:700; border-radius:8px; border:none; cursor:pointer; font-size:0.75rem; height: 40px; }
   </style>
-  <script type="module" crossorigin src="/OpenReview/assets/index-Bd6DcVLh.js"></script>
+  <script type="module" crossorigin src="/OpenReview/assets/index-B96x2ldA.js"></script>
 </head>
 <body style="background:#faf9f7;min-height:100vh">
 
@@ -71,24 +70,23 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
         <div>
           <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Project Name *</label>
-          <input id="input-review-title" type="text" placeholder="e.g. Chronic Pain Review" class="or-input" />
+          <input id="input-review-title" type="text" placeholder="e.g. Chronic Pain Review" class="or-input" tabIndex="1" />
         </div>
         <div>
           <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Visibility</label>
           <div id="vis-selector" style="display:flex; gap:0.4rem;">
-            <button class="vis-btn active" data-vis="Private">Private</button>
-            <button class="vis-btn" data-vis="Shared">Shared</button>
-            <button class="vis-btn" data-vis="Public">Public</button>
+            <button class="vis-btn active" data-vis="Private" tabIndex="2">Private</button>
+            <button class="vis-btn" data-vis="Shared" tabIndex="3">Shared</button>
+            <button class="vis-btn" data-vis="Public" tabIndex="4">Public</button>
           </div>
         </div>
       </div>
       <div style="margin-bottom:1.5rem">
         <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Description</label>
-        <textarea id="input-review-description" rows="3" class="or-input" style="resize:none" placeholder="Briefly describe the research objective..."></textarea>
+        <textarea id="input-review-description" rows="3" class="or-input" style="resize:none" placeholder="Enter objective..." tabIndex="5"></textarea>
       </div>
-      <p id="modal-error" class="hidden" style="font-size:0.75rem;color:#c4622d;margin-bottom:1rem">A project name is required.</p>
       <div style="display:flex;justify-content:flex-end">
-        <button id="btn-create-review" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.9rem;padding:0.6rem 2rem;border-radius:10px;border:none;cursor:pointer">Start Review</button>
+        <button id="btn-create-review" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.9rem;padding:0.6rem 2rem;border-radius:10px;border:none;cursor:pointer" tabIndex="6">Start Review</button>
       </div>
     </div>
   </div>
@@ -110,20 +108,21 @@
       <div>
         <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:#9e9e9e;margin-bottom:0.5rem">Search Papers</p>
         <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
-          <input id="crossref-input" type="text" placeholder="Title, author, keyword..." style="flex:1; border:1px solid #e8e4df; border-radius:7px; padding:0.4rem 0.6rem; outline:none; font-size:0.85rem;" />
-          <button id="btn-crossref-search" style="background:#1a1a1a;color:#fff;font-weight:600;border-radius:7px;border:none;cursor:pointer">Find</button>
+          <input id="crossref-input" type="text" placeholder="Title, author, keyword..." style="flex:1; border:1px solid #e8e4df; border-radius:7px; padding:0.4rem 0.6rem; outline:none; font-size:0.85rem;" tabIndex="7" />
+          <button id="btn-crossref-search" style="background:#1a1a1a;color:#fff;font-weight:600;border-radius:7px;border:none;cursor:pointer" tabIndex="8">Find</button>
         </div>
-        <div id="search-engines" style="display:flex; gap:0.4rem; margin-bottom:1rem; flex-wrap:wrap;">
+        <div id="search-engines" style="display:flex; gap:0.4rem; margin-bottom:1rem;">
           <button class="engine-btn active" data-engine="pubmed">PubMed</button>
           <button class="engine-btn" data-engine="scholar">Google Scholar</button>
         </div>
         <div id="crossref-results" style="border:1px solid #e8e4df;border-radius:10px;background:#fff;max-height:320px;overflow-y:auto"></div>
-        <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
-          <div style="flex:1; background:#fff; border:1px solid #e8e4df; padding:8px; border-radius:10px; text-align:center;">
-            <span id="stat-articles" style="display:block; font-size:1.1rem; font-weight:700;">0</span>
-            <span style="font-size:0.6rem; color:#9e9e9e; text-transform:uppercase;">articles</span>
+        
+        <div style="display:flex;gap:0.5rem;margin-top:1.25rem;align-items:center;">
+          <div class="stat-box-small">
+            <span id="stat-articles" style="display:block; font-size:0.9rem; font-weight:700;">0</span>
+            <span style="font-size:0.5rem; color:#9e9e9e; text-transform:uppercase;">articles</span>
           </div>
-          <button id="btn-start-screening" style="flex:2; background:#1a1a1a; color:#fff; font-weight:700; border-radius:10px; border:none; cursor:pointer;">Begin Screening</button>
+          <button id="btn-start-screening" class="btn-action-small">Begin Screening</button>
         </div>
       </div>
     </div>
@@ -131,22 +130,9 @@
 
   <div id="screening-screen" class="hidden flex-1">
     <div class="screen-layout">
-      <aside class="pane pane-sidebar">
-        <label class="filter-label">Quick Actions</label>
-        <button id="btn-undo" style="width:100%; font-size:0.7rem; background:#fff; border:1px solid #e8e4df; padding:0.4rem; border-radius:6px; cursor:pointer;">Undo (⌘Z)</button>
-      </aside>
-      <main class="pane pane-list">
-        <div id="screening-article-list"></div>
-      </main>
-      <section class="pane pane-reader">
-        <div id="reader-empty" style="text-align:center; margin-top:5rem; color:#9e9e9e;">Select an article to begin</div>
-        <div id="reader-content" class="hidden">
-          <div id="reader-status-box"></div>
-          <h2 id="reader-title" class="or-wordmark" style="font-size:1.8rem; line-height:1.2; margin:1rem 0;"></h2>
-          <p id="reader-meta" style="font-size:0.95rem; color:#666; margin-bottom:2.5rem; border-bottom:1px solid #eee; padding-bottom:1rem;"></p>
-          <div id="reader-abstract" style="font-size:1.15rem; line-height:1.7; color:#1a1a1a; white-space:pre-wrap;"></div>
-        </div>
-      </section>
+      <aside class="pane pane-sidebar"></aside>
+      <main class="pane pane-list"><div id="screening-article-list"></div></main>
+      <section class="pane pane-reader"><div id="reader-content"></div></section>
     </div>
   </div>
 </div>
