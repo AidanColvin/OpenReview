@@ -3,31 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V29</title>
+  <title>OpenReview V31</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
     .nav-tab { font-size: 0.875rem; color: #666; padding: 0.5rem 1rem; cursor: pointer; border: none; background: none; font-weight: 500; }
     .nav-tab.active { color: #000; font-weight: 700; border-bottom: 2px solid #000; }
-    .nav-tab:hover { color: #000; }
     .or-wordmark { font-family: serif; font-weight: bold; }
     .accent { color: #c4622d; }
-    .engine-btn { font-size: 0.72rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; transition: all 0.2s; }
+    .engine-btn { font-size: 0.72rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; }
     .engine-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .vis-btn { flex: 1; font-size: 0.75rem; padding: 0.6rem; border-radius: 8px; border: 1px solid #e8e4df; background: #fff; color: #666; cursor: pointer; font-weight: 600; }
+    .vis-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .or-input { width: 100%; border: 1px solid #e8e4df; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.875rem; outline: none; }
     .or-overlay { background: rgba(250, 249, 247, 0.98); backdrop-filter: blur(10px); }
   </style>
-  <script type="module" crossorigin src="/OpenReview/assets/index-C8MTFobx.js"></script>
+  <script type="module" crossorigin src="/OpenReview/assets/index-_3bBjrel.js"></script>
 </head>
 <body style="background:#faf9f7;min-height:100vh">
-
 <div id="splash-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[200]">
   <div class="flex items-center gap-3">
     <img src="/OpenReview/openreview_icon.png" alt="" class="w-10 h-10 rounded-full" />
     <span class="or-wordmark text-4xl"><span>Open</span><span class="accent">Review</span></span>
   </div>
 </div>
-
 <div id="main-app" class="hidden flex flex-col" style="min-height:100vh">
   <nav style="height:52px;background:#fff;border-bottom:1px solid #e8e4df;position:sticky;top:0;z-index:50" class="flex items-center px-6">
     <div class="flex items-center gap-2">
@@ -43,31 +42,33 @@
       <button id="btn-shortcuts" style="font-size:0.8rem;color:#9e9e9e;margin-left:1rem;background:none;border:none;cursor:pointer">Shortcuts (?)</button>
     </div>
   </nav>
-
   <div id="home-screen" class="hidden fixed inset-0 z-40 flex items-center justify-center or-overlay" style="top:52px;">
     <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.08);width:100%;max-width:560px;margin:1rem;padding:2.5rem">
       <h2 class="or-wordmark" style="font-size:1.5rem;margin-bottom:1.5rem">Project Startup</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
         <div>
-          <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Review Title *</label>
-          <input id="input-review-title" type="text" placeholder="e.g. Chronic Pain Meta-Analysis" class="or-input" />
+          <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Project Name *</label>
+          <input id="input-review-title" type="text" placeholder="e.g. Chronic Pain Review" class="or-input" />
         </div>
         <div>
-          <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Topic</label>
-          <input id="input-review-topic" type="text" placeholder="e.g. Pregabalin" class="or-input" />
+          <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Visibility</label>
+          <div id="vis-selector" style="display:flex; gap:0.4rem;">
+            <button class="vis-btn active" data-vis="Private">Private</button>
+            <button class="vis-btn" data-vis="Shared">Shared</button>
+            <button class="vis-btn" data-vis="Public">Public</button>
+          </div>
         </div>
       </div>
       <div style="margin-bottom:2rem">
         <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Description</label>
         <textarea id="input-review-description" rows="3" class="or-input" style="resize:none" placeholder="Briefly describe the objective..."></textarea>
       </div>
-      <p id="modal-error" class="hidden" style="font-size:0.75rem;color:#c4622d;margin-bottom:1rem">A review title is required to start.</p>
+      <p id="modal-error" class="hidden" style="font-size:0.75rem;color:#c4622d;margin-bottom:1rem">A project name is required to start.</p>
       <div style="display:flex;justify-content:flex-end">
         <button id="btn-create-review" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.9rem;padding:0.7rem 2.5rem;border-radius:10px;border:none;cursor:pointer">Start Review</button>
       </div>
     </div>
   </div>
-
   <div id="import-screen" class="hidden flex-1" style="padding:2rem 2.5rem;max-width:1100px;margin:0 auto;width:100%">
     <div style="display:grid;grid-template-columns:420px 1fr;gap:2.5rem;align-items:start">
       <div>
@@ -115,10 +116,9 @@
       </div>
     </div>
   </div>
-
-  <div id="screening-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Screening View Active.</div></div>
-  <div id="analysis-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Analysis View Active.</div></div>
-  <div id="export-screen" class="hidden flex-1"><div style="padding:3rem; text-align:center;">Export View Active.</div></div>
+  <div id="screening-screen" class="hidden flex-1"></div>
+  <div id="analysis-screen" class="hidden flex-1"></div>
+  <div id="export-screen" class="hidden flex-1"></div>
 </div>
 </body>
 </html>
