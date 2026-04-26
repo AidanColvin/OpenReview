@@ -49,8 +49,9 @@ function renderCriteriaUI() {
 }
 
 async function handleUploads(files: FileList) {
+  const fileArray = Array.from(files);
   const newlyParsed: Article[] = [];
-  for (const file of Array.from(files)) {
+  for (const file of fileArray) {
     let p: Article[] = [];
     if (file.name.endsWith('.pdf')) p = await parsePdf(file);
     else if (file.name.endsWith('.docx')) p = await parseDocx(file);
@@ -71,7 +72,7 @@ async function triggerSearch() {
   const resultsEl = el('crossref-results');
   resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;">Searching ' + currentEngine + '...</p>';
   try {
-    // PASS THE ENGINE TO THE CROSSREF HANDLER
+    // Pass both query and selected engine
     lastSearchResults = await searchCrossref(query, currentEngine);
     if (!lastSearchResults.length) { resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
     resultsEl.innerHTML = lastSearchResults.map((a, i) => `
@@ -86,8 +87,10 @@ async function triggerSearch() {
 function bindEvents(): void {
   ['import','screening','analysis','export'].forEach(s => { const b = el('nav-' + s); if (b) b.onclick = () => showScreen(s); });
   el('file-input').onchange = async (e) => { const f = (e.target as HTMLInputElement).files; if (f) { await handleUploads(f); (e.target as HTMLInputElement).value = ''; } };
+  
   el('btn-crossref-search').onclick = triggerSearch;
-  el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') triggerSearch(); };
+  el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); triggerSearch(); } };
+
   el('crossref-results').onclick = (e) => {
     const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
     if (btn) {
@@ -98,11 +101,27 @@ function bindEvents(): void {
       btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
     }
   };
+
   document.querySelectorAll('.engine-btn').forEach(b => {
-    (b as HTMLElement).onclick = () => { document.querySelectorAll('.engine-btn').forEach(btn => btn.classList.remove('active')); b.classList.add('active'); currentEngine = (b as HTMLElement).dataset.engine!; };
+    (b as HTMLElement).onclick = () => { 
+      document.querySelectorAll('.engine-btn').forEach(btn => btn.classList.remove('active')); 
+      b.classList.add('active'); 
+      currentEngine = (b as HTMLElement).dataset.engine!; 
+    };
   });
+
   ['inclusion', 'exclusion'].forEach(type => {
     const input = el('input-' + type) as HTMLInputElement;
-    input.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Tab') { const val = input.value.trim(); if (val) { const cur = localStorage.getItem('openreview_' + type) || ''; localStorage.setItem('openreview_' + type, val + (cur ? '\n' + cur : '')); input.value = ''; renderCriteriaUI(); } if (e.key === 'Enter') e.preventDefault(); } };
+    input.onkeydown = (e) => { 
+      if (e.key === 'Enter' || e.key === 'Tab') { 
+        const val = input.value.trim(); 
+        if (val) { 
+          const cur = localStorage.getItem('openreview_' + type) || ''; 
+          localStorage.setItem('openreview_' + type, val + (cur ? '\n' + cur : '')); 
+          input.value = ''; renderCriteriaUI(); 
+        } 
+        if (e.key === 'Enter') e.preventDefault(); 
+      } 
+    };
   });
 }
