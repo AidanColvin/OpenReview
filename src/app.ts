@@ -3,12 +3,21 @@ import { loadArticles, saveArticles } from './storage';
 import { parsePdf, parseDocx, parseRIS, parseBibTeX } from './parser';
 import { searchCrossref } from './crossref';
 
+// Extension for TypeScript to recognize our window functions
+declare global {
+  interface Window {
+    selectArticle: (i: number) => void;
+    addFromSearch: (idx: number) => void;
+    lastResults: Article[];
+  }
+}
+
 const state: AppState = { articles: [], currentId: null, filters: makeFilter(), snackbarFrame: null, snackbarTimer: null };
 let currentEngine = 'pubmed';
 let selectedIdx = 0;
-let lastDecision: { id: string, status: string } | null = null;
+let lastDecision: { id: string, status: any } | null = null;
 
-// Keyword Association Maps
+// Keyword Association Maps for Smart Highlighting
 let includeWeights: Record<string, number> = {};
 let excludeWeights: Record<string, number> = {};
 
@@ -81,9 +90,10 @@ function renderScreeningUI() {
   }
 }
 
+// Attach functions to window for HTML access
 window.selectArticle = (i: number) => { selectedIdx = i; renderScreeningUI(); };
 
-function makeDecision(decision: string) {
+function makeDecision(decision: any) {
   const art = state.articles[selectedIdx];
   if (!art) return;
   lastDecision = { id: art.id, status: art.decision };
@@ -94,12 +104,11 @@ function makeDecision(decision: string) {
   if (selectedIdx < state.articles.length - 1) selectedIdx++;
   renderScreeningUI();
   
-  // POST to backend (Optimistic)
   fetch('http://localhost:8000/api/decisions', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ citation_id: art.id, decision, timestamp: Date.now() })
-  }).catch(() => console.warn("Decision sync pending..."));
+  }).catch(() => {});
 }
 
 function undoDecision() {
@@ -113,18 +122,32 @@ function undoDecision() {
   lastDecision = null;
 }
 
+function renderImportList() {
+  const list = el('import-article-list');
+  el('stat-articles').textContent = String(state.articles.length);
+  list.innerHTML = state.articles.map(a => `<div style="padding:10px; border-bottom:1px solid #eee;"><p style="font-size:13px; font-weight:600;">${esc(a.title)}</p></div>`).join('');
+}
+
+window.addFromSearch = (idx: number) => {
+  const art = window.lastResults[idx];
+  art.id = Math.random().toString(36).substr(2, 9);
+  state.articles = [art, ...state.articles];
+  saveArticles(state.articles); renderImportList();
+};
+
 function bindEvents(): void {
   ['import','screening','analysis','export'].forEach(s => el('nav-' + s).onclick = () => showScreen(s));
+  
   el('btn-create-review').onclick = () => {
     const t = (el('input-review-title') as HTMLInputElement).value.trim();
     if (!t) { el('modal-error').classList.remove('hidden'); return; }
     localStorage.setItem('openreview_review_title', t);
     el('review-title-display').textContent = t; showScreen('import');
   };
+
   el('btn-start-screening').onclick = () => showScreen('screening');
   el('btn-undo').onclick = undoDecision;
 
-  // KEYBOARD SHORTCUTS
   window.onkeydown = (e) => {
     const activeEl = document.activeElement?.tagName;
     if (activeEl === 'INPUT' || activeEl === 'TEXTAREA') return;
@@ -137,7 +160,6 @@ function bindEvents(): void {
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoDecision(); }
   };
 
-  // Import functionality (Preserved)
   el('file-input').onchange = async (e) => {
     const f = (e.target as HTMLInputElement).files;
     if (f) {
@@ -153,20 +175,12 @@ function bindEvents(): void {
   el('btn-crossref-search').onclick = async () => {
     const q = (el('crossref-input') as HTMLInputElement).value.trim(); if (!q) return;
     const res = await searchCrossref(q, currentEngine);
-    el('crossref-results').innerHTML = res.map((a, i) => `<div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;"><div style="flex:1;"><p style="font-size:12px;font-weight:600;margin:0;">${esc(a.title)}</p></div><button onclick="addFromSearch(${i})" style="font-size:11px;background:#fdf0ea;color:#c4622d;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">+ add</button></div>`).join('');
+    el('crossref-results').innerHTML = res.map((a, i) => `
+      <div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;">
+        <div style="flex:1;"><p style="font-size:12px;font-weight:600;margin:0;">${esc(a.title)}</p></div>
+        <button onclick="addFromSearch(${i})" style="font-size:11px;background:#fdf0ea;color:#c4622d;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">+ add</button>
+      </div>
+    `).join('');
     window.lastResults = res;
   };
-}
-
-window.addFromSearch = (idx: number) => {
-  const art = window.lastResults[idx];
-  art.id = Math.random().toString(36).substr(2, 9);
-  state.articles = [art, ...state.articles];
-  saveArticles(state.articles); renderImportList();
-};
-
-function renderImportList() {
-  const list = el('import-article-list');
-  el('stat-articles').textContent = String(state.articles.length);
-  list.innerHTML = state.articles.map(a => `<div style="padding:10px; border-bottom:1px solid #eee;"><p style="font-size:13px; font-weight:600;">${esc(a.title)}</p></div>`).join('');
 }
