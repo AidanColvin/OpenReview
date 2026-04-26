@@ -15,6 +15,7 @@ A heuristic-driven, open-source systematic review screener designed to optimize 
 
 **Free. No account required. No backend. Runs entirely in your browser.**
 
+This project is currently a work in progress and is not yet a final product.
 ---
 
 ## Table of Contents

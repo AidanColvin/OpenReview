@@ -3,7 +3,7 @@ import { Article, makeArticle } from './models';
 export async function searchCrossref(query: string, engine: string): Promise<Article[]> {
   try {
     if (engine === 'pubmed') {
-      // PUBMED LOGIC (Bulletproof NCBI)
+      // PUBMED LOGIC (UTOUCHED - Bulletproof NCBI)
       const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=15`;
       const searchRes = await fetch(searchUrl);
       const searchData = await searchRes.json();
@@ -23,8 +23,9 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
         });
       }).filter(Boolean) as Article[];
     } else {
-      // SCHOLAR LOGIC (Robust OpenAlex)
-      const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&filter=type:article&per-page=15`;
+      // SCHOLAR LOGIC (OpenAlex with English Language Filter)
+      // Added filter=language:en to ensure ALL titles are in English
+      const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&filter=type:article,language:en&per-page=15`;
       const res = await fetch(url);
       const data = await res.json();
       return (data.results || []).map((item: any) => makeArticle({
