@@ -49,18 +49,15 @@ function renderCriteriaUI() {
 }
 
 async function handleUploads(files: FileList) {
-  const fileArray = Array.from(files);
   const newlyParsed: Article[] = [];
-  for (const file of fileArray) {
+  for (const file of Array.from(files)) {
     let p: Article[] = [];
     if (file.name.endsWith('.pdf')) p = await parsePdf(file);
     else if (file.name.endsWith('.docx')) p = await parseDocx(file);
     p.forEach(art => {
       art.id = Math.random().toString(36).substr(2, 9);
       art.journal = file.name;
-      const text = art.abstract || '';
-      if (text.length > 20 && !text.includes('extract')) art.title = text.substring(0, 140) + '...';
-      else if (!art.title) art.title = file.name;
+      if (!art.title) art.title = file.name;
     });
     newlyParsed.push(...p);
   }
@@ -74,7 +71,7 @@ async function triggerSearch() {
   const resultsEl = el('crossref-results');
   resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;">Searching ' + currentEngine + '...</p>';
   try {
-    lastSearchResults = await searchCrossref(`${currentEngine} ${query}`);
+    lastSearchResults = await searchCrossref(query);
     if (!lastSearchResults.length) { resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
     resultsEl.innerHTML = lastSearchResults.map((a, i) => `
       <div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;">
