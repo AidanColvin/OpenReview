@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V24</title>
+  <title>OpenReview V27</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
@@ -60,12 +60,12 @@
           <input id="crossref-input" type="text" placeholder="Title, author, keyword..." style="flex:1; border:1px solid #e8e4df; border-radius:7px; padding:0.5rem; outline:none;" />
           <button id="btn-crossref-search" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.875rem;padding:0.5rem 1.25rem;border-radius:7px;border:none;cursor:pointer">Find</button>
         </div>
+        
         <div id="search-engines" style="display:flex; gap:0.4rem; margin-bottom:1rem; flex-wrap:wrap;">
           <button class="engine-btn active" data-engine="pubmed">PubMed</button>
-          <button class="engine-btn" data-engine="embase">Embase</button>
-          <button class="engine-btn" data-engine="cochrane">Cochrane</button>
           <button class="engine-btn" data-engine="scholar">Google Scholar</button>
         </div>
+        
         <div id="crossref-results" style="border:1px solid #e8e4df;border-radius:10px;background:#fff;max-height:350px;overflow-y:auto"></div>
         <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
           <div style="flex:1; background:#fff; border:1px solid #e8e4df; padding:10px; border-radius:10px; text-align:center;">
