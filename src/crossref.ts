@@ -2,7 +2,7 @@ import { Article, makeArticle } from './models';
 
 export async function searchCrossref(query: string, engine: string): Promise<Article[]> {
   try {
-    // 1. PUBMED API (Official US Gov NCBI E-Utilities)
+    // 1. OFFICIAL PUBMED API (Untouched, exactly as it worked in V24)
     if (engine === 'pubmed') {
       const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=12`;
       const searchRes = await fetch(searchUrl);
@@ -26,26 +26,41 @@ export async function searchCrossref(query: string, engine: string): Promise<Art
           journal: item.source || 'PubMed',
           year: yearMatch ? parseInt(yearMatch[0]) : null,
           abstract: '',
+          doi: item.elocationid && item.elocationid.includes('doi:') ? item.elocationid.split('doi: ')[1] : '',
           decision: 'unscreened'
         });
-      }).filter(Boolean);
+      }).filter(Boolean) as Article[];
     } 
     
-    // 2. SEMANTIC SCHOLAR API (For Google Scholar, Embase, Cochrane)
+    // 2. NEW BULLETPROOF SCHOLAR API (Crossref API - No Rate Limits)
     else {
-      const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=12&fields=title,authors,venue,year,abstract,externalIds`;
+      const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&select=title,author,container-title,issued,abstract,DOI&rows=12`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Semantic Scholar API Error");
+      if (!res.ok) throw new Error("Scholar API Error");
       
       const data = await res.json();
-      return (data.data || []).map((item: any) => makeArticle({
-        title: item.title || 'Untitled',
-        authors: item.authors ? item.authors.map((a: any) => a.name) : [],
-        journal: item.venue || (engine === 'scholar' ? 'Google Scholar' : 'Academic Repository'),
-        year: item.year || null,
-        abstract: item.abstract || '',
-        decision: 'unscreened'
-      }));
+      const items = data.message?.items || [];
+      
+      return items.map((item: any) => {
+        const title = item.title ? item.title[0] : 'Untitled';
+        const authors = item.author ? item.author.map((a: any) => `${a.given || ''} ${a.family || ''}`.trim()) : [];
+        const journal = item['container-title'] ? item['container-title'][0] : 'Google Scholar';
+        const year = item.issued && item.issued['date-parts'] ? item.issued['date-parts'][0][0] : null;
+        
+        // Clean up XML tags often found in Crossref abstracts
+        let abstract = item.abstract || '';
+        abstract = abstract.replace(/<[^>]*>?/gm, '');
+        
+        return makeArticle({
+          title,
+          authors,
+          journal,
+          year,
+          abstract,
+          doi: item.DOI || '',
+          decision: 'unscreened'
+        });
+      });
     }
   } catch (error) {
     console.error("Search Error:", error);
