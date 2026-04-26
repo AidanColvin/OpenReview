@@ -5,6 +5,7 @@ import { searchCrossref } from './crossref';
 
 const state: AppState = { articles: [], currentId: null, filters: makeFilter(), snackbarFrame: null, snackbarTimer: null };
 let currentEngine = 'pubmed';
+let currentVisibility = 'Private';
 let lastSearchResults: Article[] = [];
 
 function el(id: string): HTMLElement { return document.getElementById(id)!; }
@@ -18,7 +19,6 @@ export function boot(): void {
     el('splash-screen').style.display = 'none'; 
     el('main-app').classList.remove('hidden'); 
     
-    // STARTUP LOGIC: Check for existing review
     const savedTitle = localStorage.getItem('openreview_review_title');
     if (savedTitle) {
       el('review-title-display').textContent = savedTitle;
@@ -46,6 +46,7 @@ function submitCreateReview(): void {
   if (!title) { el('modal-error').style.display = 'block'; return; }
   
   localStorage.setItem('openreview_review_title', title);
+  localStorage.setItem('openreview_visibility', currentVisibility);
   el('review-title-display').textContent = title;
   showScreen('import');
   renderImportList();
@@ -74,7 +75,7 @@ function renderCriteriaUI() {
     const data = localStorage.getItem('openreview_' + type) || '';
     const items = data.split('\n').filter(Boolean);
     listEl.innerHTML = items.map(item => `
-      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">
+      <div style="background:#fff; border:1px solid #e8e4df; padding:0.6rem; border-radius:6px; font-size:0.85rem; color:#1a1a1a; display:flex; align-items:center;">
         ${esc(item)}
       </div>
     `).join('');
@@ -142,6 +143,15 @@ function bindEvents(): void {
   ['import','screening','analysis','export'].forEach(s => { const navBtn = el('nav-' + s); if (navBtn) navBtn.onclick = () => showScreen(s); });
   
   el('btn-create-review').onclick = submitCreateReview;
+
+  // Visibility Selectors
+  document.querySelectorAll('.vis-btn').forEach(b => {
+    (b as HTMLElement).onclick = () => {
+      document.querySelectorAll('.vis-btn').forEach(btn => btn.classList.remove('active'));
+      b.classList.add('active');
+      currentVisibility = (b as HTMLElement).dataset.vis!;
+    };
+  });
 
   const fileInput = el('file-input') as HTMLInputElement;
   if (fileInput) {
