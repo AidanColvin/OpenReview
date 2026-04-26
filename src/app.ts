@@ -14,13 +14,17 @@ export function boot(): void {
   state.articles = loadArticles();
   bindEvents();
   setTimeout(() => { 
-    el('splash-screen').style.display = 'none'; el('main-app').classList.remove('hidden'); 
+    el('splash-screen').style.display = 'none'; 
+    el('main-app').classList.remove('hidden'); 
     showScreen('import'); renderImportList(); renderCriteriaUI(); 
   }, 800);
 }
 
 function showScreen(s: string): void {
-  ['import','screening','analysis','export'].forEach(id => { const scr = el(id + '-screen'); if (scr) scr.style.display = (id === s ? 'block' : 'none'); });
+  ['import','screening','analysis','export'].forEach(id => {
+    const scr = el(id + '-screen');
+    if (scr) scr.style.display = (id === s ? 'block' : 'none');
+  });
   document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('active', btn.id === 'nav-' + s));
 }
 
@@ -41,10 +45,13 @@ function renderImportList(): void {
 
 function renderCriteriaUI() {
   ['inclusion', 'exclusion'].forEach(type => {
-    const listEl = el('list-' + type); if (!listEl) return;
+    const listEl = el('list-' + type);
+    if (!listEl) return;
     const data = localStorage.getItem('openreview_' + type) || '';
     const items = data.split('\n').filter(Boolean);
-    listEl.innerHTML = items.map(item => `<div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">${esc(item)}</div>`).join('');
+    listEl.innerHTML = items.map(item => `
+      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">${esc(item)}</div>
+    `).join('');
   });
 }
 
@@ -68,11 +75,11 @@ async function handleUploads(files: FileList) {
 
 async function triggerSearch() {
   const input = el('crossref-input') as HTMLInputElement;
-  const query = input.value.trim(); if (!query) return;
+  const query = input.value.trim();
+  if (!query) return;
   const resultsEl = el('crossref-results');
   resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;">Searching ' + currentEngine + '...</p>';
   try {
-    // Pass both query and selected engine
     lastSearchResults = await searchCrossref(query, currentEngine);
     if (!lastSearchResults.length) { resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
     resultsEl.innerHTML = lastSearchResults.map((a, i) => `
@@ -85,8 +92,8 @@ async function triggerSearch() {
 }
 
 function bindEvents(): void {
-  ['import','screening','analysis','export'].forEach(s => { const b = el('nav-' + s); if (b) b.onclick = () => showScreen(s); });
-  el('file-input').onchange = async (e) => { const f = (e.target as HTMLInputElement).files; if (f) { await handleUploads(f); (e.target as HTMLInputElement).value = ''; } };
+  ['import','screening','analysis','export'].forEach(s => el('nav-' + s).onclick = () => showScreen(s));
+  el('file-input').onchange = (e) => { const f = (e.target as HTMLInputElement).files; if (f) handleUploads(f); };
   
   el('btn-crossref-search').onclick = triggerSearch;
   el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); triggerSearch(); } };
