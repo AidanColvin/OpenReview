@@ -13,13 +13,22 @@ function esc(s: any): string { return s ? String(s).replace(/&/g,'&amp;').replac
 export function boot(): void {
   state.articles = loadArticles();
   bindEvents();
+  
   setTimeout(() => { 
     el('splash-screen').style.display = 'none'; 
     el('main-app').classList.remove('hidden'); 
-    showScreen('import'); 
-    renderImportList(); 
-    renderCriteriaUI(); 
-  }, 800);
+    
+    // STARTUP LOGIC: Check for existing review
+    const savedTitle = localStorage.getItem('openreview_review_title');
+    if (savedTitle) {
+      el('review-title-display').textContent = savedTitle;
+      showScreen('import');
+      renderImportList();
+      renderCriteriaUI();
+    } else {
+      el('home-screen').style.display = 'flex';
+    }
+  }, 1000);
 }
 
 function showScreen(s: string): void {
@@ -27,7 +36,20 @@ function showScreen(s: string): void {
     const scr = el(id + '-screen');
     if (scr) scr.style.display = (id === s ? 'block' : 'none');
   });
+  el('home-screen').style.display = 'none';
   document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('active', btn.id === 'nav-' + s));
+}
+
+function submitCreateReview(): void {
+  const titleInput = el('input-review-title') as HTMLInputElement;
+  const title = titleInput.value.trim();
+  if (!title) { el('modal-error').style.display = 'block'; return; }
+  
+  localStorage.setItem('openreview_review_title', title);
+  el('review-title-display').textContent = title;
+  showScreen('import');
+  renderImportList();
+  renderCriteriaUI();
 }
 
 function renderImportList(): void {
@@ -52,7 +74,7 @@ function renderCriteriaUI() {
     const data = localStorage.getItem('openreview_' + type) || '';
     const items = data.split('\n').filter(Boolean);
     listEl.innerHTML = items.map(item => `
-      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; display:flex; align-items:center;">
+      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">
         ${esc(item)}
       </div>
     `).join('');
@@ -119,6 +141,8 @@ async function triggerSearch() {
 function bindEvents(): void {
   ['import','screening','analysis','export'].forEach(s => { const navBtn = el('nav-' + s); if (navBtn) navBtn.onclick = () => showScreen(s); });
   
+  el('btn-create-review').onclick = submitCreateReview;
+
   const fileInput = el('file-input') as HTMLInputElement;
   if (fileInput) {
     fileInput.onchange = async (e) => {
@@ -130,30 +154,20 @@ function bindEvents(): void {
     };
   }
 
-  const searchBtn = el('btn-crossref-search');
-  if (searchBtn) searchBtn.onclick = triggerSearch;
-  
-  const searchInput = el('crossref-input') as HTMLInputElement;
-  if (searchInput) {
-    searchInput.onkeydown = (e) => { 
-      if (e.key === 'Enter') { e.preventDefault(); triggerSearch(); } 
-    };
-  }
+  el('btn-crossref-search').onclick = triggerSearch;
+  (el('crossref-input') as HTMLInputElement).onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); triggerSearch(); } };
 
-  const resultsDiv = el('crossref-results');
-  if (resultsDiv) {
-    resultsDiv.onclick = (e) => {
-      const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
-      if (btn) {
-        const art = JSON.parse(JSON.stringify(lastSearchResults[parseInt(btn.dataset.idx!)]));
-        art.id = Math.random().toString(36).substr(2, 9);
-        state.articles = [art, ...state.articles];
-        saveArticles(state.articles); 
-        renderImportList();
-        btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
-      }
-    };
-  }
+  el('crossref-results').onclick = (e) => {
+    const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
+    if (btn) {
+      const art = JSON.parse(JSON.stringify(lastSearchResults[parseInt(btn.dataset.idx!)]));
+      art.id = Math.random().toString(36).substr(2, 9);
+      state.articles = [art, ...state.articles];
+      saveArticles(state.articles); 
+      renderImportList();
+      btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
+    }
+  };
 
   document.querySelectorAll('.engine-btn').forEach(b => {
     (b as HTMLElement).onclick = () => {
