@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenReview V31</title>
+  <title>OpenReview V32</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
@@ -17,16 +17,41 @@
     .vis-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
     .or-input { width: 100%; border: 1px solid #e8e4df; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.875rem; outline: none; }
     .or-overlay { background: rgba(250, 249, 247, 0.98); backdrop-filter: blur(10px); }
+    
+    /* Screening Layout Styles */
+    .screen-layout { display: grid; grid-template-columns: 240px 1fr 1.5fr; height: calc(100vh - 52px); overflow: hidden; }
+    .pane { height: 100%; overflow-y: auto; border-right: 1px solid #e8e4df; background: #fff; }
+    .pane-sidebar { background: #faf9f7; padding: 1.5rem; }
+    .pane-list { background: #fff; }
+    .pane-reader { background: #fff; padding: 2.5rem; }
+    
+    .article-card { padding: 1rem 1.25rem; border-bottom: 1px solid #f0ece8; cursor: pointer; transition: background 0.1s; border-left: 4px solid transparent; }
+    .article-card:hover { background: #fcfbf9; }
+    .article-card.selected { background: #fdf0ea; border-left-color: #c4622d; }
+    
+    .status-pill { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .status-unscreened { background: #eee; color: #888; }
+    .status-included { background: #e6f9f0; color: #1a6b42; }
+    .status-excluded { background: #fde8e8; color: #8b1a1a; }
+    .status-maybe { background: #fef3cd; color: #7a5000; }
+
+    .highlight-include { background: #d1fae5; color: #065f46; font-weight: 600; padding: 0 2px; border-radius: 2px; }
+    .highlight-exclude { background: #fee2e2; color: #991b1b; font-weight: 600; padding: 0 2px; border-radius: 2px; }
+    
+    .filter-group { margin-bottom: 1.5rem; }
+    .filter-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #9e9e9e; margin-bottom: 0.5rem; display: block; }
   </style>
-  <script type="module" crossorigin src="/OpenReview/assets/index-_3bBjrel.js"></script>
+  <script type="module" crossorigin src="/OpenReview/assets/index-DzfDQwIN.js"></script>
 </head>
 <body style="background:#faf9f7;min-height:100vh">
+
 <div id="splash-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[200]">
   <div class="flex items-center gap-3">
     <img src="/OpenReview/openreview_icon.png" alt="" class="w-10 h-10 rounded-full" />
     <span class="or-wordmark text-4xl"><span>Open</span><span class="accent">Review</span></span>
   </div>
 </div>
+
 <div id="main-app" class="hidden flex flex-col" style="min-height:100vh">
   <nav style="height:52px;background:#fff;border-bottom:1px solid #e8e4df;position:sticky;top:0;z-index:50" class="flex items-center px-6">
     <div class="flex items-center gap-2">
@@ -42,6 +67,7 @@
       <button id="btn-shortcuts" style="font-size:0.8rem;color:#9e9e9e;margin-left:1rem;background:none;border:none;cursor:pointer">Shortcuts (?)</button>
     </div>
   </nav>
+
   <div id="home-screen" class="hidden fixed inset-0 z-40 flex items-center justify-center or-overlay" style="top:52px;">
     <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.08);width:100%;max-width:560px;margin:1rem;padding:2.5rem">
       <h2 class="or-wordmark" style="font-size:1.5rem;margin-bottom:1.5rem">Project Startup</h2>
@@ -59,16 +85,13 @@
           </div>
         </div>
       </div>
-      <div style="margin-bottom:2rem">
-        <label style="display:block;font-size:0.7rem;font-weight:700;color:#9e9e9e;text-transform:uppercase;margin-bottom:6px">Description</label>
-        <textarea id="input-review-description" rows="3" class="or-input" style="resize:none" placeholder="Briefly describe the objective..."></textarea>
-      </div>
       <p id="modal-error" class="hidden" style="font-size:0.75rem;color:#c4622d;margin-bottom:1rem">A project name is required to start.</p>
       <div style="display:flex;justify-content:flex-end">
         <button id="btn-create-review" style="background:#1a1a1a;color:#fff;font-weight:600;font-size:0.9rem;padding:0.7rem 2.5rem;border-radius:10px;border:none;cursor:pointer">Start Review</button>
       </div>
     </div>
   </div>
+
   <div id="import-screen" class="hidden flex-1" style="padding:2rem 2.5rem;max-width:1100px;margin:0 auto;width:100%">
     <div style="display:grid;grid-template-columns:420px 1fr;gap:2.5rem;align-items:start">
       <div>
@@ -99,24 +122,59 @@
             <span id="stat-articles" style="display:block; font-size:1.25rem; font-weight:700;">0</span>
             <span style="font-size:0.7rem; color:#9e9e9e; text-transform:uppercase;">articles</span>
           </div>
-          <button id="btn-start-screening" disabled style="flex:2; background:#e8e4df; color:#9e9e9e; font-weight:700; border-radius:10px; border:none; cursor:not-allowed;">Begin Screening</button>
-        </div>
-      </div>
-      <div style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid #e8e4df; padding-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem;">
-        <div>
-          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(85, 107, 85, 0.2); background:rgba(85, 107, 85, 0.05); color:#000; margin-bottom: 1rem; text-align:center;">Inclusion Criteria</div>
-          <input id="input-inclusion" type="text" placeholder="Type criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
-          <div id="list-inclusion" style="display:flex; flex-direction:column; gap:0.4rem;"></div>
-        </div>
-        <div>
-          <div style="width:100%; font-weight:700; font-size:0.95rem; padding:0.75rem; border-radius:8px; border: 1px solid rgba(128, 0, 0, 0.2); background:rgba(128, 0, 0, 0.05); color:#000; margin-bottom: 1rem; text-align:center;">Exclusion Criteria</div>
-          <input id="input-exclusion" type="text" placeholder="Type criteria & press Enter..." style="width:100%; border:1px solid #e8e4df; border-radius:7px; padding:0.6rem; font-size:0.875rem; outline:none; margin-bottom: 0.5rem;" />
-          <div id="list-exclusion" style="display:flex; flex-direction:column; gap:0.4rem;"></div>
+          <button id="btn-start-screening" style="flex:2; background:#1a1a1a; color:#fff; font-weight:700; border-radius:10px; border:none; cursor:pointer;">Begin Screening</button>
         </div>
       </div>
     </div>
   </div>
-  <div id="screening-screen" class="hidden flex-1"></div>
+
+  <div id="screening-screen" class="hidden flex-1">
+    <div class="screen-layout">
+      <aside class="pane pane-sidebar">
+        <div class="filter-group">
+          <label class="filter-label">Decisions</label>
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <label style="font-size:0.8rem; display:flex; align-items:center; gap:8px;"><input type="checkbox" checked /> Unscreened</label>
+            <label style="font-size:0.8rem; display:flex; align-items:center; gap:8px;"><input type="checkbox" checked /> Included</label>
+            <label style="font-size:0.8rem; display:flex; align-items:center; gap:8px;"><input type="checkbox" checked /> Excluded</label>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Keywords</label>
+          <input type="text" placeholder="Filter abstract..." class="or-input" style="padding:0.4rem 0.6rem; font-size:0.75rem;" />
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Quick Actions</label>
+          <button id="btn-undo" style="width:100%; font-size:0.75rem; background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; cursor:pointer;">Undo Last Decision (⌘Z)</button>
+        </div>
+      </aside>
+
+      <main class="pane pane-list">
+        <div id="screening-article-list"></div>
+      </main>
+
+      <section class="pane pane-reader">
+        <div id="reader-empty" style="text-align:center; margin-top:5rem; color:#9e9e9e;">
+          <p>Select an article to begin</p>
+          <div style="margin-top:2rem; font-size:0.8rem; display:flex; flex-direction:column; gap:0.5rem;">
+            <p><strong>I</strong> — Include</p>
+            <p><strong>E</strong> — Exclude</p>
+            <p><strong>M</strong> — Maybe</p>
+            <p><strong>Arrows</strong> — Navigate</p>
+          </div>
+        </div>
+        <div id="reader-content" class="hidden">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem;">
+            <h2 id="reader-title" class="or-wordmark" style="font-size:1.5rem; line-height:1.2; flex:1;"></h2>
+            <div id="reader-status" style="margin-left:1rem;"></div>
+          </div>
+          <p id="reader-meta" style="font-size:0.9rem; color:#666; margin-bottom:2rem;"></p>
+          <div id="reader-abstract" style="font-size:1.1rem; line-height:1.6; color:#1a1a1a; white-space:pre-wrap;"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <div id="analysis-screen" class="hidden flex-1"></div>
   <div id="export-screen" class="hidden flex-1"></div>
 </div>
