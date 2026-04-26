@@ -14,13 +14,19 @@ export function boot(): void {
   state.articles = loadArticles();
   bindEvents();
   setTimeout(() => { 
-    el('splash-screen').style.display = 'none'; el('main-app').classList.remove('hidden'); 
-    showScreen('import'); renderImportList(); renderCriteriaUI(); 
+    el('splash-screen').style.display = 'none'; 
+    el('main-app').classList.remove('hidden'); 
+    showScreen('import'); 
+    renderImportList(); 
+    renderCriteriaUI(); 
   }, 800);
 }
 
 function showScreen(s: string): void {
-  ['import','screening','analysis','export'].forEach(id => { const scr = el(id + '-screen'); if (scr) scr.style.display = (id === s ? 'block' : 'none'); });
+  ['import','screening','analysis','export'].forEach(id => {
+    const scr = el(id + '-screen');
+    if (scr) scr.style.display = (id === s ? 'block' : 'none');
+  });
   document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('active', btn.id === 'nav-' + s));
 }
 
@@ -41,19 +47,40 @@ function renderImportList(): void {
 
 function renderCriteriaUI() {
   ['inclusion', 'exclusion'].forEach(type => {
-    const listEl = el('list-' + type); if (!listEl) return;
+    const listEl = el('list-' + type);
+    if (!listEl) return;
     const data = localStorage.getItem('openreview_' + type) || '';
     const items = data.split('\n').filter(Boolean);
-    listEl.innerHTML = items.map(item => `<div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; margin-bottom:0.25rem;">${esc(item)}</div>`).join('');
+    listEl.innerHTML = items.map(item => `
+      <div style="background:#fff; border:1px solid #e8e4df; padding:0.5rem; border-radius:6px; font-size:0.8rem; color:#1a1a1a; display:flex; align-items:center;">
+        ${esc(item)}
+      </div>
+    `).join('');
   });
 }
 
 async function handleUploads(files: FileList) {
+  const fileArray = Array.from(files);
   const newlyParsed: Article[] = [];
-  for (const file of Array.from(files)) {
+  for (const file of fileArray) {
     let p: Article[] = [];
-    if (file.name.endsWith('.pdf')) p = await parsePdf(file);
-    else if (file.name.endsWith('.docx')) p = await parseDocx(file);
+    try {
+        if (file.name.endsWith('.pdf')) p = await parsePdf(file);
+        else if (file.name.endsWith('.docx')) p = await parseDocx(file);
+        else {
+           const text = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsText(file);
+           });
+           if (file.name.endsWith('.ris')) p = parseRIS(text);
+           else if (file.name.endsWith('.bib')) p = parseBibTeX(text);
+           else p = [makeArticle({title: file.name, abstract: 'Imported', journal: file.name})];
+        }
+    } catch (e) {
+        p = [makeArticle({title: file.name, abstract: 'Could not extract', journal: file.name})];
+    }
+    
     p.forEach(art => {
       art.id = Math.random().toString(36).substr(2, 9);
       art.journal = file.name;
@@ -62,46 +89,95 @@ async function handleUploads(files: FileList) {
     newlyParsed.push(...p);
   }
   state.articles = [...newlyParsed, ...state.articles];
-  saveArticles(state.articles); renderImportList();
+  saveArticles(state.articles); 
+  renderImportList();
 }
 
 async function triggerSearch() {
   const input = el('crossref-input') as HTMLInputElement;
-  const query = input.value.trim(); if (!query) return;
+  const query = input.value.trim();
+  if (!query) return;
   const resultsEl = el('crossref-results');
   resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;">Searching ' + currentEngine + '...</p>';
   try {
-    lastSearchResults = await searchCrossref(query);
-    if (!lastSearchResults.length) { resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; return; }
+    lastSearchResults = await searchCrossref(query, currentEngine);
+    if (!lastSearchResults.length) { 
+      resultsEl.innerHTML = '<p style="padding:1rem;text-align:center;color:#999;">No results found.</p>'; 
+      return; 
+    }
     resultsEl.innerHTML = lastSearchResults.map((a, i) => `
       <div style="display:flex;padding:10px;border-bottom:1px solid #eee;align-items:center;gap:10px;">
         <div style="flex:1;"><p style="font-size:12px;font-weight:600;margin:0;">${esc(a.title)}</p></div>
         <button class="add-btn" data-idx="${i}" style="font-size:11px;background:#fdf0ea;color:#c4622d;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">+ add</button>
       </div>
     `).join('');
-  } catch (e) { resultsEl.innerHTML = '<p style="padding:1rem;color:red;text-align:center;">Search failed.</p>'; }
+  } catch (e) { 
+    resultsEl.innerHTML = '<p style="padding:1rem;color:red;text-align:center;">Search failed. Please try again.</p>'; 
+  }
 }
 
 function bindEvents(): void {
-  ['import','screening','analysis','export'].forEach(s => { const b = el('nav-' + s); if (b) b.onclick = () => showScreen(s); });
-  el('file-input').onchange = async (e) => { const f = (e.target as HTMLInputElement).files; if (f) { await handleUploads(f); (e.target as HTMLInputElement).value = ''; } };
-  el('btn-crossref-search').onclick = triggerSearch;
-  el('crossref-input').onkeydown = (e) => { if (e.key === 'Enter') triggerSearch(); };
-  el('crossref-results').onclick = (e) => {
-    const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
-    if (btn) {
-      const art = JSON.parse(JSON.stringify(lastSearchResults[parseInt(btn.dataset.idx!)]));
-      art.id = Math.random().toString(36).substr(2, 9);
-      state.articles = [art, ...state.articles];
-      saveArticles(state.articles); renderImportList();
-      btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
-    }
-  };
+  ['import','screening','analysis','export'].forEach(s => { const navBtn = el('nav-' + s); if (navBtn) navBtn.onclick = () => showScreen(s); });
+  
+  const fileInput = el('file-input') as HTMLInputElement;
+  if (fileInput) {
+    fileInput.onchange = async (e) => {
+      const f = (e.target as HTMLInputElement).files;
+      if (f && f.length > 0) {
+        await handleUploads(f);
+        fileInput.value = ''; 
+      }
+    };
+  }
+
+  const searchBtn = el('btn-crossref-search');
+  if (searchBtn) searchBtn.onclick = triggerSearch;
+  
+  const searchInput = el('crossref-input') as HTMLInputElement;
+  if (searchInput) {
+    searchInput.onkeydown = (e) => { 
+      if (e.key === 'Enter') { e.preventDefault(); triggerSearch(); } 
+    };
+  }
+
+  const resultsDiv = el('crossref-results');
+  if (resultsDiv) {
+    resultsDiv.onclick = (e) => {
+      const btn = (e.target as HTMLElement).closest('.add-btn') as HTMLButtonElement;
+      if (btn) {
+        const art = JSON.parse(JSON.stringify(lastSearchResults[parseInt(btn.dataset.idx!)]));
+        art.id = Math.random().toString(36).substr(2, 9);
+        state.articles = [art, ...state.articles];
+        saveArticles(state.articles); 
+        renderImportList();
+        btn.innerText = 'Added'; btn.style.background = '#f0fdf4'; btn.style.color = '#16a34a';
+      }
+    };
+  }
+
   document.querySelectorAll('.engine-btn').forEach(b => {
-    (b as HTMLElement).onclick = () => { document.querySelectorAll('.engine-btn').forEach(btn => btn.classList.remove('active')); b.classList.add('active'); currentEngine = (b as HTMLElement).dataset.engine!; };
+    (b as HTMLElement).onclick = () => {
+      document.querySelectorAll('.engine-btn').forEach(btn => btn.classList.remove('active'));
+      b.classList.add('active');
+      currentEngine = (b as HTMLElement).dataset.engine!;
+    };
   });
+
   ['inclusion', 'exclusion'].forEach(type => {
     const input = el('input-' + type) as HTMLInputElement;
-    input.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Tab') { const val = input.value.trim(); if (val) { const cur = localStorage.getItem('openreview_' + type) || ''; localStorage.setItem('openreview_' + type, val + (cur ? '\n' + cur : '')); input.value = ''; renderCriteriaUI(); } if (e.key === 'Enter') e.preventDefault(); } };
+    if (input) {
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const val = input.value.trim();
+          if (val) {
+            const cur = localStorage.getItem('openreview_' + type) || '';
+            localStorage.setItem('openreview_' + type, val + (cur ? '\n' + cur : ''));
+            input.value = '';
+            renderCriteriaUI();
+          }
+        }
+      };
+    }
   });
 }
